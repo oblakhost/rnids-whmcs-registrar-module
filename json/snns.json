@@ -1,0 +1,79 @@
+{
+  "adminContact": "MRG690b5dad8b45d",
+  "clientId": "Oblak Solutions d.o.o.",
+  "createClientId": null,
+  "createDate": {
+    "date": "2025-11-05 15:22:37.682891",
+    "timezone_type": 3,
+    "timezone": "UTC"
+  },
+  "dnsSec": false,
+  "domainVerificationRequestExpiresOn": {
+    "date": "2025-11-25 15:22:37.000000",
+    "timezone_type": 3,
+    "timezone": "UTC"
+  },
+  "domainVerifiedOn": {
+    "date": "2025-11-26 12:04:20.000000",
+    "timezone_type": 3,
+    "timezone": "UTC"
+  },
+  "expirationDate": {
+    "date": "2026-11-05 15:22:37.682891",
+    "timezone_type": 3,
+    "timezone": "UTC"
+  },
+  "isDomainVerified": true,
+  "isWhoisPrivacyPaid": false,
+  "name": "selidbenovisadd.rs",
+  "nameservers": {
+    "ns1.oblak.host": {
+      "ipv4": [
+        "157.90.164.42"
+      ],
+      "ipv6": [
+        "2a01:4f8:c0c:813a::1"
+      ]
+    },
+    "ns2.oblak.host": {
+      "ipv4": [
+        "78.47.152.85"
+      ],
+      "ipv6": [
+        "2a01:4f8:c2c:cf73::1"
+      ]
+    },
+    "ns3.oblak.host": {
+      "ipv4": [
+        "88.198.119.4"
+      ],
+      "ipv6": [
+        "2a01:4f8:c0c:813a::2"
+      ]
+    },
+    "ns4.oblak.host": {
+      "ipv4": [
+        "88.99.120.143"
+      ],
+      "ipv6": [
+        "2a01:4f8:c010:4712::1"
+      ]
+    }
+  },
+  "notifyAdmin": false,
+  "operationMode": "normal",
+  "registrant": "MRG690b5dad8b45d",
+  "remark": "",
+  "roid": "503509",
+  "statuses": [
+    "ok"
+  ],
+  "techContact": "domendomenkontakt",
+  "updateClientId": null,
+  "updateDate": {
+    "date": "2025-11-26 00:55:21.078957",
+    "timezone_type": 3,
+    "timezone": "UTC"
+  },
+  "whoisPrivacy": false
+}

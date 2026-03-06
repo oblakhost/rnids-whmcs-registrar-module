@@ -1,0 +1,61 @@
+{
+  "adminContact": "MRG68ee10dcbe771",
+  "clientId": "Oblak Solutions d.o.o.",
+  "createClientId": null,
+  "createDate": {
+    "date": "2025-10-14 10:59:08.871314",
+    "timezone_type": 3,
+    "timezone": "UTC"
+  },
+  "dnsSec": false,
+  "domainVerificationRequestExpiresOn": {
+    "date": "2025-11-03 10:59:08.000000",
+    "timezone_type": 3,
+    "timezone": "UTC"
+  },
+  "domainVerifiedOn": null,
+  "expirationDate": {
+    "date": "2026-10-14 10:59:08.871314",
+    "timezone_type": 3,
+    "timezone": "UTC"
+  },
+  "isDomainVerified": false,
+  "isWhoisPrivacyPaid": false,
+  "name": "daunmax.rs",
+  "nameservers": {
+    "dns1.unlimited.rs": {
+      "ipv4": [],
+      "ipv6": []
+    },
+    "dns2.unlimited.rs": {
+      "ipv4": [],
+      "ipv6": []
+    },
+    "dns3.unlimited.rs": {
+      "ipv4": [],
+      "ipv6": []
+    },
+    "dns4.unlimited.rs": {
+      "ipv4": [],
+      "ipv6": []
+    }
+  },
+  "notifyAdmin": false,
+  "operationMode": "normal",
+  "registrant": "MRG68ee10dcbe771",
+  "remark": "",
+  "roid": "499217",
+  "statuses": [
+    "inactive",
+    "serverHold",
+    "pendingUpdate"
+  ],
+  "techContact": "domendomenkontakt",
+  "updateClientId": null,
+  "updateDate": {
+    "date": "2025-11-16 21:59:51.372330",
+    "timezone_type": 3,
+    "timezone": "UTC"
+  },
+  "whoisPrivacy": false
+}
