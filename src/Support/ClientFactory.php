@@ -13,20 +13,26 @@ final class ClientFactory
     public static function buildClientParams(array $moduleParams): array
     {
         $testmode = ($moduleParams['testmode'] ?? 'off') === 'on';
+        $certificatePassword = trim((string) ($moduleParams['epp_certificate_password'] ?? ''));
+
+        $tls = [
+            'allowSelfSigned' => $testmode,
+            'caFilePath' => $moduleParams['epp_ca'] ?? '',
+            'clientCertificatePath' => $moduleParams['epp_certificate'] ?? '',
+            'verifyPeer' => !$testmode,
+            'verifyPeerName' => !$testmode,
+        ];
+
+        if ($certificatePassword !== '') {
+            $tls['clientCertificatePassword'] = $certificatePassword;
+        }
 
         return [
             'host' => $testmode ? 'epp-test.rnids.rs' : 'epp.rnids.rs',
             'port' => 700,
             'username' => $moduleParams['epp_username'] ?? '',
             'password' => $moduleParams['epp_password'] ?? '',
-            'tls' => [
-                'allowSelfSigned' => true,
-                'caFilePath' => $moduleParams['epp_ca'] ?? '',
-                'clientCertificatePassword' => '12345',
-                'clientCertificatePath' => $moduleParams['epp_certificate'] ?? '',
-                'verifyPeer' => false,
-                'verifyPeerName' => false,
-            ],
+            'tls' => $tls,
         ];
     }
 }

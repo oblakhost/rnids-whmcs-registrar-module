@@ -15,7 +15,13 @@ This document summarizes the parameters WHMCS can pass to registrar module funct
 - `firstname`, `lastname`, `companyname`
 - `email`, `address1`, `address2`, `city`, `state`, `postcode`, `country`, `phonenumber`
 - `dnsmanagement`, `emailforwarding`, `idprotection`
-- module config values from `rnids_getConfigArray` (for this module: `epp_username`, `epp_password`, `epp_certificate`, `epp_ca`, `reg_mb`, `reg_pib`, `admin_id`, `testmode`).
+- module config values from `rnids_getConfigArray` (for this module: `epp_username`, `epp_password`, `epp_certificate`, `epp_certificate_password`, `epp_ca`, `reg_mb`, `reg_pib`, `admin_id`, `testmode`).
+
+### TLS/Test mode behavior
+
+- Production mode (`testmode` disabled): peer verification is enabled (`verifyPeer=true`, `verifyPeerName=true`).
+- Test mode (`testmode` enabled): test endpoint `epp-test.rnids.rs` is used with relaxed TLS checks for sandbox compatibility.
+- `epp_certificate_password` is optional and used only when the client certificate is passphrase-protected.
 
 ## Contact-Related Parameters
 

@@ -6,8 +6,11 @@ namespace Oblak\WHMCS\RSREG\Nameserver;
 
 final class KnownHostRepository
 {
-    public function __construct(private readonly string $moduleRootPath)
+    private readonly string $moduleRootPath;
+
+    public function __construct(?string $moduleRootPath= null) 
     {
+        $this->moduleRootPath = $moduleRootPath ?: ROOTDIR . '/modules/registrars/rnids';
     }
 
     /**

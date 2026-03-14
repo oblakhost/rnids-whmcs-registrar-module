@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/whmcs-gateway-module.schema.json",
+  "title": "WHMCS Gateway Module whmcs.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "type",
+    "name",
+    "license",
+    "category",
+    "description"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "1.0",
+      "description": "WHMCS metadata schema version"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["whmcs-addons", "whmcs-fraud", "whmcs-gateways", "whmcs-registrars", "whmcs-security", "whmcs-servers", "whmcs-notifications"]
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Machine name (kebab-case)"
+    },
+    "license": {
+      "type": "string",
+      "minLength": 1
+    },
+    "category": {
+      "type": "string",
+      "enum": ["addon", "fraud", "gateway", "registrar", "security", "server", "notification", "domains"]
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+(\\.\\d+)?(-[a-zA-Z0-9]+)?$",
+      "description": "Semantic version (e.g. 1.0.0, 2.1, 3.0-beta)"
+    },
+    "description": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "tagline", "long", "features"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "tagline": { "type": "string", "minLength": 1 },
+        "long": { "type": "string", "minLength": 1 },
+        "features": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "logo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filename"],
+      "properties": {
+        "filename": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\/]+\\.(png|jpg|jpeg|gif|svg)$"
+        }
+      }
+    },
+    "support": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "homepage": { "type": "string", "format": "uri" },
+        "learn_more": { "type": "string", "format": "uri" },
+        "email": { "type": "string", "format": "email" },
+        "support_url": { "type": "string", "format": "uri" },
+        "docs_url": { "type": "string", "format": "uri" }
+      }
+    },
+    "authors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "homepage"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "homepage": { "type": "string", "format": "uri" }
+        }
+      }
+    }
+  }
+}

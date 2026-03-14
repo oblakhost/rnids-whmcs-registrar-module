@@ -1,0 +1,35 @@
+{
+    "schema": "1.0",
+    "name": "rnids",
+    "version": "0.0.0-dev",
+    "type": "whmcs-registrars",
+    "license": "proprietary",
+    "category": "domains",
+    "logo": {
+        "filename": "logo_large.png"
+    },
+    "description": {
+        "name": "RNIDS",
+        "tagline": "Serbian national domain authority",
+        "long": "This module allows you to manage your RNIDS domains directly from WHMCS. You can register, transfer, and manage your RNIDS domains with ease.",
+        "features": [
+            "Register new RNIDS domains",
+            "Transfer existing RNIDS domains",
+            "Manage DNS settings for your RNIDS domains",
+            "View domain details and status"
+        ]
+    },
+    "support": {
+        "homepage": "https://oblak.host",
+        "email": "podrska@oblak.host",
+        "support_url": "https://podrska.oblak.host",
+        "docs_url": "https://docs.oblak.host/whmcs-rnids-module",
+        "learn_more": "https://oblak.host/blog/whmcs-rnids-modul"
+    },
+    "authors": [
+        {
+            "name": "Oblak Solutions",
+            "homepage": "https://oblak.studio"
+        }
+    ]
+}

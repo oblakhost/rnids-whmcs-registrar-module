@@ -5,10 +5,96 @@ declare(strict_types=1);
 namespace Oblak\WHMCS\RSREG\Nameserver;
 
 use RNIDS\Client;
+use RNIDS\Exception\ObjectAlreadyExists;
 use RNIDS\Exception\ObjectMissing;
 
 final class HostService
 {
+    /**
+     * @return array{ipv4:list<string>, ipv6:list<string>}|null
+     */
+    public function findExistingHostAddresses(Client $client, string $nameserver): ?array
+    {
+        $hostService = $client->host();
+        $checkResults = $hostService->check($nameserver);
+        $checkResult = $checkResults[0] ?? null;
+
+        if (!is_array($checkResult) || ($checkResult['available'] ?? null) !== false) {
+            return null;
+        }
+
+        try {
+            $info = $hostService->info($nameserver);
+        } catch (ObjectMissing) {
+            return null;
+        }
+
+        return [
+            'ipv4' => array_values(array_unique(array_map('strval', $info['ipv4'] ?? []))),
+            'ipv6' => array_values(array_unique(array_map('strval', $info['ipv6'] ?? []))),
+        ];
+    }
+
+    public function createSingleAddressHost(Client $client, string $nameserver, string $ipAddress): void
+    {
+        $addresses = $this->singleAddressSet($ipAddress);
+
+        try {
+            $client->host()->create([
+                'name' => $nameserver,
+                'addresses' => $this->toHostAddressRecords($addresses['ipv4'], $addresses['ipv6']),
+            ]);
+
+            return;
+        } catch (ObjectAlreadyExists $exception) {
+            $existing = $client->host()->info($nameserver);
+
+            if ($this->hostHasExactAddressSet($existing, $addresses['ipv4'], $addresses['ipv6'])) {
+                return;
+            }
+
+            throw $exception;
+        }
+    }
+
+    public function replaceSingleAddressHost(Client $client, string $nameserver, string $ipAddress): void
+    {
+        $hostService = $client->host();
+        $existing = $hostService->info($nameserver);
+        $addresses = $this->singleAddressSet($ipAddress);
+
+        if ($this->hostHasExactAddressSet($existing, $addresses['ipv4'], $addresses['ipv6'])) {
+            return;
+        }
+
+        $existingIpv4 = array_values(array_unique(array_map('strval', $existing['ipv4'] ?? [])));
+        $existingIpv6 = array_values(array_unique(array_map('strval', $existing['ipv6'] ?? [])));
+
+        $removeAddresses = $this->toHostAddressRecords($existingIpv4, $existingIpv6);
+        $addAddresses = $this->toHostAddressRecords($addresses['ipv4'], $addresses['ipv6']);
+
+        $updatePayload = ['name' => $nameserver];
+
+        if ($removeAddresses !== []) {
+            $updatePayload['remove'] = ['addresses' => $removeAddresses];
+        }
+
+        if ($addAddresses !== []) {
+            $updatePayload['add'] = ['addresses' => $addAddresses];
+        }
+
+        $hostService->update($updatePayload);
+    }
+
+    public function deleteHostIfExists(Client $client, string $nameserver): void
+    {
+        try {
+            $client->host()->delete($nameserver);
+        } catch (ObjectMissing) {
+            // Repeated delete requests should be treated as success.
+        }
+    }
+
     /**
      * @param array{ipv4:list<string>, ipv6:list<string>} $knownAddresses
      */
@@ -84,5 +170,28 @@ final class HostService
         }
 
         return $records;
+    }
+
+    /**
+     * @return array{ipv4:list<string>, ipv6:list<string>}
+     */
+    private function singleAddressSet(string $ipAddress): array
+    {
+        return false !== filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)
+            ? ['ipv4' => [], 'ipv6' => [$ipAddress]]
+            : ['ipv4' => [$ipAddress], 'ipv6' => []];
+    }
+
+    /**
+     * @param array<string,mixed> $hostInfo
+     * @param list<string> $expectedIpv4
+     * @param list<string> $expectedIpv6
+     */
+    private function hostHasExactAddressSet(array $hostInfo, array $expectedIpv4, array $expectedIpv6): bool
+    {
+        $existingIpv4 = array_values(array_unique(array_map('strval', $hostInfo['ipv4'] ?? [])));
+        $existingIpv6 = array_values(array_unique(array_map('strval', $hostInfo['ipv6'] ?? [])));
+
+        return $existingIpv4 === $expectedIpv4 && $existingIpv6 === $expectedIpv6;
     }
 }

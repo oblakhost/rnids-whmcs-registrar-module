@@ -4,15 +4,20 @@ use Oblak\WHMCS\RSREG\Registrar;
 use Oblak\WHMCS\RSREG\Support\ModuleLogger;
 use RNIDS\Client;
 use WHMCS\Domain\Registrar\Domain;
+use WHMCS\Domains\DomainLookup\ResultsList;
 use WHMCS\Exception\Module\InvalidConfiguration;
 
 require_once __DIR__ . '/vendor/autoload.php';
 
 function rnids_MetaData(){
     return [
-        'DisplayName' => 'RNIDS RsReg',
+        'DisplayName' => 'RNIDS',
         'APIVersion' => '1.1',
     ];
+}
+
+function rnids_App(array $params): Registrar {
+    return Registrar::fromParams($params);
 }
 
 function rnids_getConfigArray(): array{
@@ -28,7 +33,7 @@ function rnids_getConfigArray(): array{
             "testmode" => [
                 "FriendlyName" => "Test Mode",
                 "Type" => "yesno",
-                "Description" => "Check this to activate test mode. Will be implemented once EPP endpoints are fixed."
+                "Description" => "Check this to use RNIDS EPP test endpoint with relaxed TLS verification."
             ],
             "epp_username" => [
                 "FriendlyName" => "User name",
@@ -50,6 +55,12 @@ function rnids_getConfigArray(): array{
                 'FriendlyName' => 'CA',
                 'Type' => 'text',
                 'Description' => 'Path to the CA file.',
+                'Default' => '',
+            ],
+            'epp_certificate_password' => [
+                'FriendlyName' => 'Certificate Password',
+                'Type' => 'password',
+                'Description' => 'Optional passphrase for the client certificate file.',
                 'Default' => '',
             ],
             'reg_mb' => [
@@ -75,8 +86,18 @@ function rnids_getConfigArray(): array{
 }
 
 function rnids_config_validate($params) {
+    $client = null;
+
     try {
-        Registrar::fromParams($params);
+        $registrar = rnids_App($params);
+        $client = $registrar->client();
+        $meta = $client->responseMeta();
+
+        if (!is_array($meta) || !isset($meta['resultCode']) || (int) $meta['resultCode'] >= 2000) {
+            throw new \RuntimeException('Remote registry health check failed.');
+        }
+
+        logModuleCall('rnids', 'configValidate',$params, ['success' => true, 'responseMeta' => $meta], '', array_intersect_key($params, array_flip(['epp_username', 'epp_password', 'epp_certificate', 'epp_ca', 'epp_certificate_password'])));
 
     } catch (\Throwable $e) {
         ModuleLogger::logModuleCall(
@@ -88,19 +109,86 @@ function rnids_config_validate($params) {
                 'hasPassword' => !empty($params['epp_password']),
                 'hasCertificate' => !empty($params['epp_certificate']),
                 'hasCaFile' => !empty($params['epp_ca']),
+                'hasCertificatePassword' => !empty($params['epp_certificate_password']),
             ],
             ModuleLogger::exceptionContext($e)
         );
         throw new InvalidConfiguration('Connection test failed: ' . $e->getMessage());
+    } finally {
+        if ($client instanceof Client) {
+            try {
+                $client->close();
+            } catch (\Throwable $closeException) {
+                ModuleLogger::logModuleCall(
+                    'ConfigValidate',
+                    [
+                        'operation' => 'client.disconnect',
+                    ],
+                    [
+                        'warning' => ModuleLogger::exceptionContext($closeException),
+                    ]
+                );
+            }
+        }
     }
-    // error_log(print_r($cl->responseMeta(), true));
+}
 
-    // $cl->close();
-    // throw new InvalidConfiguration('This module is not yet ready for use. Please contact support for more information.');
+/**
+ * Check domain availability
+ *
+ * @param array{sld?: string, tlds?: array<int,string>, searchTerm?: string, punyCodeSearchTerm?: string, tldsToInclude?: array<int,string>, isIdnDomain?: bool, premiumEnabled?: bool} $params
+ * @return \WHMCS\Domains\DomainLookup\ResultsList An ArrayObject based collection of \WHMCS\Domains\DomainLookup\SearchResult results
+ */
+function rnids_CheckAvailability($params): ResultsList {
+    $registrar = rnids_App((array) $params);
+    $tlds = isset($params['tlds']) && is_array($params['tlds'])
+        ? array_values($params['tlds'])
+        : (isset($params['tldsToInclude']) && is_array($params['tldsToInclude']) ? array_values($params['tldsToInclude']) : []);
+
+    try {
+        $results = $registrar->checkAvailabilityFromWhmcs((array) $params);
+
+        ModuleLogger::logModuleCall(
+            'CheckAvailability',
+            [
+                'operation' => 'domain.check',
+                'sld' => (string) ($params['sld'] ?? ''),
+                'searchTerm' => (string) ($params['searchTerm'] ?? ''),
+                'punyCodeSearchTerm' => (string) ($params['punyCodeSearchTerm'] ?? ''),
+                'tlds' => $tlds,
+            ],
+            [
+                'success' => true,
+                'resultCount' => $results->count(),
+            ]
+        );
+
+        return $results;
+    } catch (\Throwable $e) {
+        ModuleLogger::logModuleCall(
+            'CheckAvailability',
+            [
+                'operation' => 'domain.check',
+                'sld' => (string) ($params['sld'] ?? ''),
+                'searchTerm' => (string) ($params['searchTerm'] ?? ''),
+                'punyCodeSearchTerm' => (string) ($params['punyCodeSearchTerm'] ?? ''),
+                'tlds' => $tlds,
+            ],
+            [
+                'error' => ModuleLogger::exceptionContext($e),
+            ]
+        );
+
+        throw new \RuntimeException(
+            $registrar->safeErrorMessage($e, 'Unable to check domain availability'),
+            0,
+            $e
+        );
+    }
 }
 
 function rnids_RegisterDomain(array $params): array {
-    $registrar = Registrar::fromParams($params);
+    $registrar = rnids_App($params);
     $logContext = rnids_buildRegistrationLogContext($params);
 
     try {
@@ -174,8 +262,48 @@ function rnids_buildRegistrationLogContext(array $params): array
     ];
 }
 
+function rnids_RenewDomain(array $params): array {
+    $registrar = rnids_App($params);
+    $domainName = strtolower(trim((string)($params['sld'] ?? '')) . '.' . ltrim(trim((string)($params['tld'] ?? '')), '.'));
+
+    try {
+        $result = $registrar->renewDomain($params);
+
+        ModuleLogger::logModuleCall(
+            'RenewDomain',
+            [
+                'operation' => 'domain.renew',
+                'domain' => $domainName,
+                'period' => (int)($params['regperiod'] ?? 0),
+            ],
+            [
+                'success' => true,
+                'response' => $result,
+            ]
+        );
+
+        return $result;
+    } catch (\Throwable $e) {
+        ModuleLogger::logModuleCall(
+            'RenewDomain',
+            [
+                'operation' => 'domain.renew',
+                'domain' => $domainName,
+                'period' => (int)($params['regperiod'] ?? 0),
+            ],
+            [
+                'error' => ModuleLogger::exceptionContext($e),
+            ]
+        );
+
+        return [
+            'error' => $registrar->safeErrorMessage($e, 'Unable to renew domain'),
+        ];
+    }
+}
+
 function rnids_TransferDomain(array $params): array {
-    $registrar = Registrar::fromParams($params);
+    $registrar = rnids_App($params);
     $domainName = strtolower(trim((string)($params['sld'] ?? '')) . '.' . ltrim(trim((string)($params['tld'] ?? '')), '.'));
 
     try {
@@ -213,7 +341,7 @@ function rnids_TransferDomain(array $params): array {
 
 function rnids_Sync(array $params): array
 {
-    $registrar = Registrar::fromParams($params);
+    $registrar = rnids_App($params);
     $domainName = strtolower(trim((string)($params['sld'] ?? '')) . '.' . ltrim(trim((string)($params['tld'] ?? '')), '.'));
 
     try {
@@ -250,7 +378,7 @@ function rnids_Sync(array $params): array
 
 function rnids_TransferSync(array $params): array
 {
-    $registrar = Registrar::fromParams($params);
+    $registrar = rnids_App($params);
     $domainName = strtolower(trim((string)($params['sld'] ?? '')) . '.' . ltrim(trim((string)($params['tld'] ?? '')), '.'));
 
     try {
@@ -285,9 +413,7 @@ function rnids_TransferSync(array $params): array
     }
 }
 
-function rnids_RenewDomain() {
 
-}
 
 function rnids_GetDomainInformation($params) {
     $registrar = Registrar::fromParams((array) $params);
@@ -336,7 +462,7 @@ function rnids_GetDomainInformation($params) {
 }
 
 function rnids_GetNameservers(array $params): array {
-    $registrar = Registrar::fromParams($params);
+    $registrar = rnids_App($params);
 
     try {
         $domainName = strtolower(trim((string)($params['sld'] ?? '')) . '.' . ltrim(trim((string)($params['tld'] ?? '')), '.'));
@@ -374,7 +500,7 @@ function rnids_GetNameservers(array $params): array {
 }
 
 function rnids_SaveNameservers(array $params): array {
-    $registrar = Registrar::fromParams($params);
+    $registrar = rnids_App($params);
 
     try {
         $domainName = strtolower(trim((string)($params['sld'] ?? '')) . '.' . ltrim(trim((string)($params['tld'] ?? '')), '.'));
@@ -420,16 +546,196 @@ function rnids_SaveNameservers(array $params): array {
     }
 }
 
-function rnids_GetRegistrarLock() {
+function rnids_RegisterNameserver($params) {
+    $registrar = rnids_App((array) $params);
+    $logContext = rnids_buildNameserverHostLogContext((array) $params, 'host.create');
 
+    try {
+        $result = $registrar->registerNameserver((array) $params);
+
+        ModuleLogger::logModuleCall(
+            'RegisterNameserver',
+            $logContext,
+            [
+                'success' => true,
+                'response' => $result,
+            ]
+        );
+
+        return $result;
+    } catch (\Throwable $e) {
+        ModuleLogger::logModuleCall(
+            'RegisterNameserver',
+            $logContext,
+            [
+                'error' => ModuleLogger::exceptionContext($e),
+            ]
+        );
+
+        return ['error' => $registrar->safeErrorMessage($e, 'Unable to register nameserver')];
+    }
 }
 
-function rnids_SaveRegistrarLock() {
+function rnids_ModifyNameserver($params) {
+    $registrar = rnids_App((array) $params);
+    $logContext = rnids_buildNameserverHostLogContext((array) $params, 'host.update');
 
+    try {
+        $result = $registrar->modifyNameserver((array) $params);
+
+        ModuleLogger::logModuleCall(
+            'ModifyNameserver',
+            $logContext,
+            [
+                'success' => true,
+                'response' => $result,
+            ]
+        );
+
+        return $result;
+    } catch (\Throwable $e) {
+        ModuleLogger::logModuleCall(
+            'ModifyNameserver',
+            $logContext,
+            [
+                'error' => ModuleLogger::exceptionContext($e),
+            ]
+        );
+
+        return ['error' => $registrar->safeErrorMessage($e, 'Unable to modify nameserver')];
+    }
+}
+
+function rnids_DeleteNameserver($params) {
+    $registrar = rnids_App((array) $params);
+    $logContext = rnids_buildNameserverHostLogContext((array) $params, 'host.delete');
+
+    try {
+        $result = $registrar->deleteNameserver((array) $params);
+
+        ModuleLogger::logModuleCall(
+            'DeleteNameserver',
+            $logContext,
+            [
+                'success' => true,
+                'response' => $result,
+            ]
+        );
+
+        return $result;
+    } catch (\Throwable $e) {
+        ModuleLogger::logModuleCall(
+            'DeleteNameserver',
+            $logContext,
+            [
+                'error' => ModuleLogger::exceptionContext($e),
+            ]
+        );
+
+        return ['error' => $registrar->safeErrorMessage($e, 'Unable to delete nameserver')];
+    }
+}
+
+/**
+ * @param array<string,mixed> $params
+ * @return array<string,mixed>
+ */
+function rnids_buildNameserverHostLogContext(array $params, string $operation): array
+{
+    $sld = trim((string) ($params['sld'] ?? ''));
+    $tld = ltrim(trim((string) ($params['tld'] ?? '')), '.');
+    $domainName = strtolower(trim($sld . '.' . $tld, '.'));
+    $requestedIp = trim((string) ($params['newipaddress'] ?? $params['ipaddress'] ?? ''));
+
+    return [
+        'operation' => $operation,
+        'domain' => $domainName,
+        'nameserver' => strtolower(rtrim(trim((string) ($params['nameserver'] ?? '')), '.')),
+        'ipAddress' => $requestedIp,
+        'currentIpAddress' => trim((string) ($params['currentipaddress'] ?? '')),
+    ];
+}
+
+function rnids_GetRegistrarLock(array $params): array {
+    $registrar = rnids_App($params);
+
+    try {
+        $domainName = strtolower(trim((string)($params['sld'] ?? '')) . '.' . ltrim(trim((string)($params['tld'] ?? '')), '.'));
+        $result = $registrar->getRegistrarLockFromWhmcs($params);
+
+        ModuleLogger::logModuleCall(
+            'GetRegistrarLock',
+            [
+                'operation' => 'domain.info.lock',
+                'domain' => $domainName,
+            ],
+            [
+                'success' => true,
+                'response' => $result,
+            ]
+        );
+
+        return $result;
+    } catch (\Throwable $e) {
+        $domainName = strtolower(trim((string)($params['sld'] ?? '')) . '.' . ltrim(trim((string)($params['tld'] ?? '')), '.'));
+
+        ModuleLogger::logModuleCall(
+            'GetRegistrarLock',
+            [
+                'operation' => 'domain.info.lock',
+                'domain' => $domainName,
+            ],
+            [
+                'error' => ModuleLogger::exceptionContext($e),
+            ]
+        );
+
+        return ['error' => $registrar->safeErrorMessage($e, 'Unable to fetch registrar lock state')];
+    }
+}
+
+function rnids_SaveRegistrarLock(array $params): array {
+    $registrar = rnids_App($params);
+
+    try {
+        $domainName = strtolower(trim((string)($params['sld'] ?? '')) . '.' . ltrim(trim((string)($params['tld'] ?? '')), '.'));
+        $result = $registrar->saveRegistrarLockFromWhmcs($params);
+
+        ModuleLogger::logModuleCall(
+            'SaveRegistrarLock',
+            [
+                'operation' => 'domain.update.lock',
+                'domain' => $domainName,
+                'requestedLock' => $params['lockenabled'] ?? null,
+            ],
+            [
+                'success' => true,
+                'response' => $result,
+            ]
+        );
+
+        return $result;
+    } catch (\Throwable $e) {
+        $domainName = strtolower(trim((string)($params['sld'] ?? '')) . '.' . ltrim(trim((string)($params['tld'] ?? '')), '.'));
+
+        ModuleLogger::logModuleCall(
+            'SaveRegistrarLock',
+            [
+                'operation' => 'domain.update.lock',
+                'domain' => $domainName,
+                'requestedLock' => $params['lockenabled'] ?? null,
+            ],
+            [
+                'error' => ModuleLogger::exceptionContext($e),
+            ]
+        );
+
+        return ['error' => $registrar->safeErrorMessage($e, 'Unable to update registrar lock state')];
+    }
 }
 
 function rnids_GetContactDetails(array $params): array {
-    $registrar = Registrar::fromParams($params);
+    $registrar = rnids_App($params);
 
     try {
         $domainName = strtolower(trim((string)($params['sld'] ?? '')) . '.' . ltrim(trim((string)($params['tld'] ?? '')), '.'));
@@ -468,7 +774,7 @@ function rnids_GetContactDetails(array $params): array {
 }
 
 function rnids_SaveContactDetails(array $params): array {
-    $registrar = Registrar::fromParams($params);
+    $registrar = rnids_App($params);
 
     try {
         $domainName = strtolower(trim((string)($params['sld'] ?? '')) . '.' . ltrim(trim((string)($params['tld'] ?? '')), '.'));
@@ -495,7 +801,6 @@ function rnids_SaveContactDetails(array $params): array {
             [
                 'operation' => 'contact.create+domain.update',
                 'domain' => $domainName,
-                'params' => $params,
             ],
             [
                 'error' => ModuleLogger::exceptionContext($e),
@@ -508,7 +813,7 @@ function rnids_SaveContactDetails(array $params): array {
 }
 
 function rnids_GetEPPCode(array $params): array {
-    $reg = Registrar::fromParams($params);
+    $reg = rnids_App($params);
 
     try {
         $result = $reg->getEPPCode($params);
@@ -553,6 +858,70 @@ function rnids_GetEPPCode(array $params): array {
     }
 }
 
-function rnids_ResendIRTPVerificationEmail() {
+function rnids_ResendIRTPVerificationEmail(array $params): array {
+    $rsreg      = $params['testmode'] === 'on' ? 'rsreg2-test': 'rsreg';
+    $domainName = strtolower(trim((string)($params['sld'] ?? '')) . '.' . ltrim(trim((string)($params['tld'] ?? '')), '.'));
+    $domainName = trim($domainName, '.');
+    $domainId = (int)($params['domainid'] ?? 0);
+    $clientId = (int)($params['userid'] ?? 0);
+    $requestedAt = date('c');
+    $url = \App::getSystemUrl() . \App::get_admin_folder_name() . "/clientsdomains.php?userid=" . $clientId . "&id=" . $domainId;
 
+    $requestContext = [
+        'operation' => 'irtp.resend_verification_email.notify_contact',
+        'domain' => $domainName,
+        'userId' => isset($params['userid']) ? (int) $params['userid'] : null,
+    ];
+
+    try {
+
+        $message = sprintf(
+            <<<EMAIL
+            Client has requested to resend the IRTP verification email for the following domain:<br><br>
+            Domain: <a href="%s">%s</a><br>
+            Domain ID: %s<br>
+            Client ID: %s<br>
+            Requested At: %s<br><br>
+
+            You can check the request <a href="https://%s.rnids.rs/RsReg2/#/app/requests">here</a><br>
+            EMAIL,
+            $url,
+            $domainName,
+            $domainId,
+            $clientId,
+            $requestedAt,
+            $rsreg,
+        );
+    
+
+        sendAdminNotification('system', 'New IRTP Verification Email Request', $message);
+
+        
+        
+
+        ModuleLogger::logModuleCall(
+            'ResendIRTPVerificationEmail',
+            $requestContext,
+            [
+                'success' => true,
+                'response' => [
+                    'delivered' => true,
+                ],
+            ]
+        );
+
+        return ['success' => true];
+    } catch (\Throwable $e) {
+        ModuleLogger::logModuleCall(
+            'ResendIRTPVerificationEmail',
+            $requestContext,
+            [
+                'error' => ModuleLogger::exceptionContext($e),
+            ]
+        );
+
+        return [
+            'error' => 'Unable to send IRTP resend notification email. Please contact support.',
+        ];
+    }
 }

@@ -10,6 +10,7 @@ use DateTimeInterface;
 use InvalidArgumentException;
 use Oblak\WHMCS\RSREG\Contact\ContactDataMapper;
 use Oblak\WHMCS\RSREG\Contact\ContactService;
+use Oblak\WHMCS\RSREG\Domain\AvailabilityLookupService;
 use Oblak\WHMCS\RSREG\Domain\DomainStatusService;
 use Oblak\WHMCS\RSREG\Model\ContactNormalizer;
 use Oblak\WHMCS\RSREG\Model\InfoNormalizer;
@@ -26,26 +27,46 @@ use RNIDS\Exception\ProtocolException;
 use Throwable;
 use WHMCS\Carbon;
 use WHMCS\Domain\Registrar\Domain;
+use WHMCS\Domains\DomainLookup\ResultsList;
 
 class Registrar
 {
+    private const SERVICE_MAP = [
+        'domainInputValidator' => DomainInputValidator::class,
+        'registrationProfileResolver' => RegistrationProfileResolver::class,
+        'contactDataMapper' => ContactDataMapper::class,
+        'availabilityLookupService' => AvailabilityLookupService::class,
+        'domainStatusService' => DomainStatusService::class,
+        'contactService' => ContactService::class,
+        'hostService' => HostService::class,
+        'domainNameserverUpdater' => DomainNameserverUpdater::class,
+        'knownHostRepository' => KnownHostRepository::class,
+    ];
+
+    private static Client $client;
+
+
     /**
      * @param array<string,mixed> $params
      */
+    private array $params;
+
+    /**
+     * @var array<string,object>
+     */
+    private array $services = [];
+
     public function __construct(
-        private array $params,
-        private readonly DomainInputValidator $domainInputValidator = new DomainInputValidator(),
-        private readonly RegistrationProfileResolver $registrationProfileResolver = new RegistrationProfileResolver(),
-        private readonly ContactDataMapper $contactDataMapper = new ContactDataMapper(),
-        private readonly DomainStatusService $domainStatusService = new DomainStatusService(),
-        private readonly ContactService $contactService = new ContactService(),
-        private readonly KnownHostRepository $knownHostRepository = new KnownHostRepository(dirname(__DIR__)),
-        private readonly HostService $hostService = new HostService(),
-        private readonly DomainNameserverUpdater $domainNameserverUpdater = new DomainNameserverUpdater(),
+        array $params,
+        ?KnownHostRepository $knownHostRepository = null,
     ) {
+        $this->params = $params;
+
+        if (null !== $knownHostRepository) {
+            $this->services['knownHostRepository'] = $knownHostRepository;
+        }
     }
 
-    private static Client $client;
 
     /**
      * @param array<string,mixed> $params
@@ -53,6 +74,21 @@ class Registrar
     public static function fromParams(array $params): self
     {
         return new self(ClientFactory::buildClientParams($params));
+    }
+
+    public function __get(string $name): object
+    {
+        if (isset($this->services[$name])) {
+            return $this->services[$name];
+        }
+
+        if (!isset(self::SERVICE_MAP[$name])) {
+            throw new InvalidArgumentException(sprintf('Unknown service "%s".', $name));
+        }
+
+        $cname = self::SERVICE_MAP[$name] ?? null;
+
+        return $this->services[$name] ??= new $cname();
     }
 
     public function client(): Client
@@ -118,6 +154,18 @@ class Registrar
         }
 
         return $result;
+    }
+
+    /**
+     * @param array<string,mixed> $params
+     */
+    public function checkAvailabilityFromWhmcs(array $params): ResultsList
+    {
+        return $this->availabilityLookupService->checkFromWhmcs(
+            $this->client(),
+            $this->domainInputValidator,
+            $params
+        );
     }
 
     /**
@@ -238,6 +286,23 @@ class Registrar
             $requestedNameservers,
             $registrationPeriod,
         );
+
+        return ['success' => true];
+    }
+
+    /**
+     * @param array<string,mixed> $params
+     * @return array{success:true}
+     */
+    public function renewDomain(array $params): array
+    {
+        $domainName = $this->domainInputValidator->normalizeDomainName($params);
+        $tld = $this->domainInputValidator->normalizeTld($params);
+        $renewalPeriod = $this->domainInputValidator->resolveRegistrationPeriod($params);
+
+        $this->domainInputValidator->validateTransferTld($tld);
+
+        $this->client()->domain()->renew($domainName, $renewalPeriod);
 
         return ['success' => true];
     }
@@ -396,6 +461,52 @@ class Registrar
         $domain->{$method}(...$arguments);
     }
 
+    /**
+     * @param array<string,mixed> $params
+     * @return array{lockenabled:'locked'|'unlocked'}
+     */
+    public function getRegistrarLockFromWhmcs(array $params): array
+    {
+        $info = $this->getInfo($params);
+        $statuses = $this->normalizeDomainStatuses($info['statuses'] ?? []);
+
+        return [
+            'lockenabled' => $this->isTransferLocked($statuses) ? 'locked' : 'unlocked',
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $params
+     * @return array{success:true}
+     */
+    public function saveRegistrarLockFromWhmcs(array $params): array
+    {
+        $domainName = strtolower($this->domainInputValidator->paramsToDomain($params));
+        $requestedLockState = $this->resolveRequestedLockState($params['lockenabled'] ?? null);
+
+        if (null === $requestedLockState) {
+            throw new InvalidArgumentException(
+                'Lock value is invalid. Expected locked/unlocked.',
+            );
+        }
+
+        $info = $this->getInfo($params);
+        $statuses = $this->normalizeDomainStatuses($info['statuses'] ?? []);
+        $isCurrentlyLocked = $this->isTransferLocked($statuses);
+
+        if ($requestedLockState === $isCurrentlyLocked) {
+            return ['success' => true];
+        }
+
+        if ($requestedLockState) {
+            $this->applyLockEnableWithFallback($domainName);
+        } else {
+            $this->applyLockDisable($domainName, $statuses);
+        }
+
+        return ['success' => true];
+    }
+
     public function safeErrorMessage(Throwable $exception, string $fallback): string
     {
         return ErrorMessageFormatter::safeMessage($exception, $fallback);
@@ -444,10 +555,16 @@ class Registrar
             throw new InvalidArgumentException('At least two nameservers are required.');
         }
 
-        $knownHosts = $this->knownHostRepository->loadKnownHosts();
+        $knownHosts = $this->resolveKnownHostsForNameservers($requestedNameservers);
 
         foreach ($requestedNameservers as $nameserver) {
             $knownAddresses = $knownHosts[$nameserver] ?? ['ipv4' => [], 'ipv6' => []];
+
+            if ($knownAddresses['ipv4'] === [] && $knownAddresses['ipv6'] === []) {
+                $this->assertNameserverCanBeUsedWithoutKnownGlue($domainName, $nameserver);
+                continue;
+            }
+
             $this->hostService->ensureHostExistsAndSynced($this->client(), $nameserver, $knownAddresses);
         }
 
@@ -470,5 +587,212 @@ class Registrar
         );
 
         return ['success' => true];
+    }
+
+    /**
+     * @param list<string> $nameservers
+     * @return array<string, array{ipv4:list<string>, ipv6:list<string>}>
+     */
+    private function resolveKnownHostsForNameservers(array $nameservers): array
+    {
+        $knownHosts = $this->knownHostRepository->loadKnownHosts();
+
+        foreach ($nameservers as $nameserver) {
+            if (isset($knownHosts[$nameserver])) {
+                continue;
+            }
+
+            $existingAddresses = $this->hostService->findExistingHostAddresses($this->client(), $nameserver);
+            if (null === $existingAddresses) {
+                continue;
+            }
+
+            $knownHosts[$nameserver] = $existingAddresses;
+        }
+
+        return $knownHosts;
+    }
+
+    private function assertNameserverCanBeUsedWithoutKnownGlue(string $domainName, string $nameserver): void
+    {
+        if (!$this->isInBailiwickNameserver($domainName, $nameserver)) {
+            return;
+        }
+
+        throw new InvalidArgumentException(sprintf(
+            'Nameserver host %s does not exist in RNIDS and has no known glue addresses. Register the child nameserver first.',
+            $nameserver,
+        ));
+    }
+
+    private function isInBailiwickNameserver(string $domainName, string $nameserver): bool
+    {
+        return $nameserver === $domainName
+            || str_ends_with($nameserver, '.' . $domainName);
+    }
+
+    /**
+     * @param array<string,mixed> $params
+     * @return array{success:true}
+     */
+    public function registerNameserver(array $params): array
+    {
+        $nameserver = $this->extractChildNameserver($params);
+        $ipAddress = $this->extractChildNameserverIp($params);
+
+        $this->hostService->createSingleAddressHost($this->client(), $nameserver, $ipAddress);
+
+        return ['success' => true];
+    }
+
+    /**
+     * @param array<string,mixed> $params
+     * @return array{success:true}
+     */
+    public function modifyNameserver(array $params): array
+    {
+        $nameserver = $this->extractChildNameserver($params);
+        $ipAddress = $this->extractChildNameserverIp($params);
+
+        $this->hostService->replaceSingleAddressHost($this->client(), $nameserver, $ipAddress);
+
+        return ['success' => true];
+    }
+
+    /**
+     * @param array<string,mixed> $params
+     * @return array{success:true}
+     */
+    public function deleteNameserver(array $params): array
+    {
+        $nameserver = $this->extractChildNameserver($params);
+
+        $this->hostService->deleteHostIfExists($this->client(), $nameserver);
+
+        return ['success' => true];
+    }
+
+    private function resolveRequestedLockState(mixed $value): ?bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_int($value)) {
+            return match ($value) {
+                1 => true,
+                0 => false,
+                default => null,
+            };
+        }
+
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $normalized = strtolower(trim($value));
+
+        if (in_array($normalized, ['locked', 'lock', 'enabled', 'enable', 'on', 'yes', 'true', '1'], true)) {
+            return true;
+        }
+
+        if (in_array($normalized, ['unlocked', 'unlock', 'disabled', 'disable', 'off', 'no', 'false', '0'], true)) {
+            return false;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string,mixed> $params
+     */
+    private function extractChildNameserver(array $params): string
+    {
+        $nameserver = strtolower(trim((string) ($params['nameserver'] ?? '')));
+        $nameserver = rtrim($nameserver, '.');
+
+        if ($nameserver === '') {
+            throw new InvalidArgumentException('Nameserver hostname is required.');
+        }
+
+        if (!filter_var($nameserver, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME)) {
+            throw new InvalidArgumentException(sprintf('Invalid nameserver hostname provided: %s', $nameserver));
+        }
+
+        return $nameserver;
+    }
+
+    /**
+     * @param array<string,mixed> $params
+     */
+    private function extractChildNameserverIp(array $params): string
+    {
+        $ipAddress = trim((string) ($params['newipaddress'] ?? $params['ipaddress'] ?? ''));
+
+        if ($ipAddress === '') {
+            throw new InvalidArgumentException('Nameserver IP address is required.');
+        }
+
+        if (false === filter_var($ipAddress, FILTER_VALIDATE_IP)) {
+            throw new InvalidArgumentException(sprintf('Invalid nameserver IP address provided: %s', $ipAddress));
+        }
+
+        return $ipAddress;
+    }
+
+    private function applyLockEnableWithFallback(string $domainName): void
+    {
+        $candidates = [
+            'clientTransferProhibited',
+            'clientUpdateProhibited',
+        ];
+
+        $lastException = null;
+
+        foreach ($candidates as $status) {
+            try {
+                $this->client()->domain()->update([
+                    'name' => $domainName,
+                    'add' => [
+                        'statuses' => [$status],
+                    ],
+                ]);
+
+                return;
+            } catch (Throwable $exception) {
+                $lastException = $exception;
+            }
+        }
+
+        if ($lastException instanceof Throwable) {
+            throw $lastException;
+        }
+    }
+
+    /**
+     * @param list<string> $currentStatuses
+     */
+    private function applyLockDisable(string $domainName, array $currentStatuses): void
+    {
+        $removableStatuses = [];
+
+        foreach (['clienttransferprohibited', 'clientupdateprohibited'] as $status) {
+            if (in_array($status, $currentStatuses, true)) {
+                $removableStatuses[] = $status === 'clienttransferprohibited'
+                    ? 'clientTransferProhibited'
+                    : 'clientUpdateProhibited';
+            }
+        }
+
+        if ($removableStatuses === []) {
+            return;
+        }
+
+        $this->client()->domain()->update([
+            'name' => $domainName,
+            'remove' => [
+                'statuses' => $removableStatuses,
+            ],
+        ]);
     }
 }

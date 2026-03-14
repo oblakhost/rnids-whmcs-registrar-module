@@ -1,0 +1,5 @@
+lanes:
+  - todo
+  - doing
+  - done
+basePrompt: ""

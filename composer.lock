@@ -12,7 +12,7 @@
             "dist": {
                 "type": "path",
                 "url": "/home/venom/Projects/composer/rnids-epp-client",
-                "reference": "d3aaebc18a26a9c0701aa15a6a20b15bafa2ab56"
+                "reference": "a9efc74fd6927e497facac92980fe26911ed6461"
             },
             "require": {
                 "ext-json": "*",
@@ -85,16 +85,16 @@
     "packages-dev": [
         {
             "name": "oblak/whmcs-stubs",
-            "version": "7.10.2",
+            "version": "v7.10.4",
             "source": {
                 "type": "git",
                 "url": "https://github.com/oblakhost/whmcs-stubs.git",
-                "reference": "495d448f7ead7cb8eb0205f1c5c2dc38331b00ac"
+                "reference": "b460cd57d132ddf0880b7a2ca4468d7b66efedc7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/oblakhost/whmcs-stubs/zipball/495d448f7ead7cb8eb0205f1c5c2dc38331b00ac",
-                "reference": "495d448f7ead7cb8eb0205f1c5c2dc38331b00ac",
+                "url": "https://api.github.com/repos/oblakhost/whmcs-stubs/zipball/b460cd57d132ddf0880b7a2ca4468d7b66efedc7",
+                "reference": "b460cd57d132ddf0880b7a2ca4468d7b66efedc7",
                 "shasum": ""
             },
             "type": "library",
@@ -124,9 +124,9 @@
             ],
             "support": {
                 "issues": "https://github.com/oblakhost/whmcs-stubs",
-                "source": "https://github.com/oblakhost/whmcs-stubs/tree/v7.10.2"
+                "source": "https://github.com/oblakhost/whmcs-stubs/tree/v7.10.4"
             },
-            "time": "2023-09-24T15:46:33+00:00"
+            "time": "2026-03-06T01:04:17+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",
