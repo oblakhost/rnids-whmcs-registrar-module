@@ -4,15 +4,21 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "52d161c4b4f1f8c5146a9f2649730d3d",
+    "content-hash": "5cf019a12c304087fefa0473d9735052",
     "packages": [
         {
             "name": "rnids/rsreg-epp-client",
-            "version": "1.0.9",
-            "dist": {
-                "type": "path",
-                "url": "/home/venom/Projects/composer/rnids-epp-client",
+            "version": "v1.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/oblakhost/rnids-rsreg-client-php.git",
                 "reference": "a9efc74fd6927e497facac92980fe26911ed6461"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/oblakhost/rnids-rsreg-client-php/zipball/a9efc74fd6927e497facac92980fe26911ed6461",
+                "reference": "a9efc74fd6927e497facac92980fe26911ed6461",
+                "shasum": ""
             },
             "require": {
                 "ext-json": "*",
@@ -35,51 +41,16 @@
                     "RNIDS\\": "src/"
                 }
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "Tests\\": "tests/"
-                }
-            },
-            "scripts": {
-                "phpcs": [
-                    "vendor/bin/phpcs"
-                ],
-                "phpstan": [
-                    "vendor/bin/phpstan analyse"
-                ],
-                "test:unit": [
-                    "vendor/bin/phpunit --testsuite unit"
-                ],
-                "test:live": [
-                    "vendor/bin/phpunit --testsuite integration"
-                ],
-                "test:coverage": [
-                    "mkdir -p build",
-                    "php -d pcov.enabled=1 vendor/bin/phpunit --testsuite unit --coverage-clover build/coverage.xml --coverage-text",
-                    "php bin/coverage-gate.php build/coverage.xml 90"
-                ],
-                "test:coverage:ci": [
-                    "mkdir -p build",
-                    "php -d pcov.enabled=1 vendor/bin/phpunit --testsuite unit --coverage-clover build/coverage.xml",
-                    "php bin/coverage-gate.php build/coverage.xml 90"
-                ],
-                "test:local": [
-                    "@test:unit",
-                    "@phpstan",
-                    "@phpcs"
-                ],
-                "test": [
-                    "@test:local"
-                ]
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "Apache-2.0"
             ],
             "description": "PHP client for the RSREG EPP server",
-            "transport-options": {
-                "symlink": false,
-                "relative": false
-            }
+            "support": {
+                "issues": "https://github.com/oblakhost/rnids-rsreg-client-php/issues",
+                "source": "https://github.com/oblakhost/rnids-rsreg-client-php/tree/v1.1.0"
+            },
+            "time": "2026-03-06T03:15:22+00:00"
         }
     ],
     "packages-dev": [
