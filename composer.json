@@ -1,17 +1,4 @@
 {
-  "repositories": [
-    {
-      "type": "path",
-      "url": "/home/venom/Projects/composer/rnids-epp-client",
-      "canonical": true,
-      "options": {
-        "symlink": false,
-        "versions": {
-          "rnids/rsreg-epp-client": "1.0.9"
-        }
-      }
-    }
-  ],
   "require": {
     "rnids/rsreg-epp-client": "^1.0"
   },
