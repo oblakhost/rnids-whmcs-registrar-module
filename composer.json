@@ -25,11 +25,15 @@
     "symfony/var-dumper": "^6.4"
   },
   "extra": {
-    "whmcs": [
-      {
-        "path": "modules/registrars/rnids",
-        "files": ["whmcs.json", "logo*", "src/", "vendor/", "rnids.php", "hooks.php", "dist.knownhosts.php"]
-      }
-    ]
+    "whmcs": {
+      "slug": "rnids",
+      "type": "registrars",
+      "data": [
+        {
+          "src": ["whmcs.json", "logo*", "src/", "vendor/", "rnids.php", "hooks.php", "dist.knownhosts.php"],
+          "dst": "modules/{type}/{slug}"
+        }
+      ]
+    }
   }
 }

@@ -97,7 +97,7 @@
       {
         "assets": [
           {
-            "path": "/tmp/module.zip",
+            "path": "/tmp/release/package.zip",
             "label": "RNIDS WHMCS Registrar Module v${nextRelease.version}",
             "name": "whmcs-rnids-registrar-module-v${nextRelease.version}.zip"
           }
