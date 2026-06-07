@@ -9,6 +9,7 @@ use WHMCS\Exception\Module\InvalidConfiguration;
 
 require_once __DIR__ . '/vendor/autoload.php';
 
+
 function rnids_MetaData(){
     return [
         'DisplayName' => 'RNIDS',
@@ -416,7 +417,7 @@ function rnids_TransferSync(array $params): array
 
 
 function rnids_GetDomainInformation($params) {
-    $registrar = Registrar::fromParams((array) $params);
+    $registrar = rnids_App($params);
     $client = null;
 
     try {
@@ -892,12 +893,12 @@ function rnids_ResendIRTPVerificationEmail(array $params): array {
             $requestedAt,
             $rsreg,
         );
-    
+
 
         sendAdminNotification('system', 'New IRTP Verification Email Request', $message);
 
-        
-        
+
+
 
         ModuleLogger::logModuleCall(
             'ResendIRTPVerificationEmail',
