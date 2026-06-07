@@ -1,11 +1,6 @@
-<!-- BEGIN AGENT KANBAN — DO NOT EDIT THIS SECTION -->
-## Agent Kanban
+# Project Instructions for AI Agents
 
-Read `.agentkanban/INSTRUCTION.md` for task workflow rules.
-Read `.agentkanban/memory.md` for project context.
-
-If a task file (`.agentkanban/tasks/**/*.md`) was referenced earlier in this conversation, re-read it before responding and always respond in and at the end the task file.
-<!-- END AGENT KANBAN -->
+This file provides instructions and context for AI coding agents working on this project.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
 ## Beads Issue Tracker
@@ -53,3 +48,22 @@ bd close <id>         # Complete work
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
+
+
+## Build & Test
+
+_Add your build and test commands here_
+
+```bash
+# Example:
+# npm install
+# npm test
+```
+
+## Architecture Overview
+
+_Add a brief overview of your project architecture_
+
+## Conventions & Patterns
+
+_Add your project-specific conventions here_
