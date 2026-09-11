@@ -43,7 +43,7 @@ class Registrar
         'knownHostRepository' => KnownHostRepository::class,
     ];
 
-    private static Client $client;
+    private ?Client $client = null;
 
 
     /**
@@ -93,11 +93,11 @@ class Registrar
 
     public function client(): Client
     {
-        if (!isset(self::$client)) {
-            self::$client = Client::ready($this->params);
+        if ($this->client === null) {
+            $this->client = Client::ready($this->params);
         }
 
-        return self::$client;
+        return $this->client;
     }
 
     /**
@@ -143,6 +143,11 @@ class Registrar
     public function transferSyncFromWhmcs(array $params): array
     {
         $info = $this->getInfo($params);
+        $statuses = $this->normalizeDomainStatuses($info['statuses'] ?? []);
+        if (in_array('pendingtransfer', $statuses, true)) {
+            return ['completed' => false];
+        }
+
         $expiryDate = $info['expirydate'] ?? null;
 
         $result = [
@@ -162,7 +167,7 @@ class Registrar
     public function checkAvailabilityFromWhmcs(array $params): ResultsList
     {
         return $this->availabilityLookupService->checkFromWhmcs(
-            $this->client(),
+            fn(): Client => $this->client(),
             $this->domainInputValidator,
             $params
         );
@@ -263,6 +268,10 @@ class Registrar
             $this->contactDataMapper,
         );
 
+        // Validate the complete contact and technical handle before any EPP call.
+        ContactNormalizer::toRnidsCreatePayload($registrantContactData, 'Registrant');
+        $techHandle = $this->registrationProfileResolver->resolveTechHandleFromConfig($params);
+
         $knownHosts = $this->knownHostRepository->loadKnownHosts();
         foreach ($requestedNameservers as $nameserver) {
             $knownAddresses = $knownHosts[$nameserver] ?? ['ipv4' => [], 'ipv6' => []];
@@ -276,8 +285,6 @@ class Registrar
         );
 
         $adminHandle = $registrantHandle;
-        $techHandle = $this->registrationProfileResolver->resolveTechHandleFromConfig($params);
-
         $this->client()->domain()->register(
             $domainName,
             $registrantHandle,
@@ -336,6 +343,11 @@ class Registrar
             throw new InvalidArgumentException('No contact details were submitted for update.');
         }
 
+        // Reject an invalid later role before any earlier role can create a contact.
+        foreach ($submitted as $role => $details) {
+            ContactNormalizer::toRnidsCreatePayload($details, $role);
+        }
+
         $existingContactIds = $this->getDomainContactIds($params);
         $existingContacts = $this->contactService->fetchContactsByRole($this->client(), $existingContactIds);
         $existingWhmcsContacts = ContactNormalizer::normalizeForWhmcs($existingContacts);
@@ -368,8 +380,15 @@ class Registrar
             $newContactIds,
         );
 
+        // RNIDS ignores other changes when a registrant change is included. Apply
+        // ordinary roles first, before the separate registrant approval flow starts.
+        $registrantHandle = $updatePayload['registrant'] ?? null;
+        unset($updatePayload['registrant']);
         if (count($updatePayload) > 1) {
             $this->client()->domain()->update($updatePayload);
+        }
+        if ($registrantHandle !== null) {
+            $this->client()->domain()->update(['name' => $domainName, 'registrant' => $registrantHandle]);
         }
 
         return ['success' => true];
@@ -627,6 +646,9 @@ class Registrar
 
     private function isInBailiwickNameserver(string $domainName, string $nameserver): bool
     {
+        $domainName = strtolower(\RNIDS\Xml\DnsNameEncoder::toAscii($domainName));
+        $nameserver = strtolower(\RNIDS\Xml\DnsNameEncoder::toAscii($nameserver));
+
         return $nameserver === $domainName
             || str_ends_with($nameserver, '.' . $domainName);
     }
@@ -774,6 +796,10 @@ class Registrar
      */
     private function applyLockDisable(string $domainName, array $currentStatuses): void
     {
+        if (array_intersect(['servertransferprohibited', 'serverupdateprohibited'], $currentStatuses) !== []) {
+            throw new InvalidArgumentException('The domain is locked by the registry. Contact support to unlock it.');
+        }
+
         $removableStatuses = [];
 
         foreach (['clienttransferprohibited', 'clientupdateprohibited'] as $status) {

@@ -14,7 +14,7 @@ final class AvailabilityLookupService
     /**
      * @param array<string,mixed> $params
      */
-    public function checkFromWhmcs(Client $client, DomainInputValidator $domainInputValidator, array $params): ResultsList
+    public function checkFromWhmcs(Client|\Closure $client, DomainInputValidator $domainInputValidator, array $params): ResultsList
     {
         $input = $this->normalizeAvailabilityInput($params);
         if ($input === null) {
@@ -25,6 +25,7 @@ final class AvailabilityLookupService
         $resultsByDomain = [];
 
         if ($supportedLookups !== []) {
+            $client = $client instanceof \Closure ? $client() : $client;
             foreach ($this->mapAvailabilityCheckResults($client->domain()->check(array_column($supportedLookups, 'name'))) as $result) {
                 $resultsByDomain[$this->searchResultKey($result)] = $result;
             }
@@ -53,7 +54,7 @@ final class AvailabilityLookupService
             $sld = trim((string) ($params['punyCodeSearchTerm'] ?? ''));
         }
 
-        $sld = strtolower(trim($sld, ". \t\n\r\0\x0B"));
+        $sld = mb_strtolower(trim($sld, ". \t\n\r\0\x0B"));
         if ($sld === '') {
             return null;
         }
@@ -63,13 +64,14 @@ final class AvailabilityLookupService
             : (isset($params['tldsToInclude']) && is_array($params['tldsToInclude']) ? $params['tldsToInclude'] : []);
 
         $normalizedTlds = [];
+        $validator = new DomainInputValidator();
         foreach ($tlds as $rawTld) {
             $tld = strtolower(ltrim(trim((string) $rawTld), '.'));
             if ($tld === '') {
                 continue;
             }
 
-            $normalizedTlds[] = $tld;
+            $normalizedTlds[] = $validator->normalizeTld(['tld' => $tld]);
         }
 
         if ($normalizedTlds === []) {
@@ -100,6 +102,8 @@ final class AvailabilityLookupService
             ];
 
             if (in_array($tld, $supportedTlds, true)) {
+                $lookup['name'] = $domainInputValidator->normalizeDomainName(['sld' => $sld, 'tld' => $tld]);
+                [$lookup['sld'], $lookup['tld']] = explode('.', $lookup['name'], 2);
                 $supportedLookups[] = $lookup;
                 continue;
             }
@@ -116,6 +120,7 @@ final class AvailabilityLookupService
     public function mapAvailabilityCheckResults(array $checks): ResultsList
     {
         $results = new ResultsList();
+        $validator = new DomainInputValidator();
 
         foreach ($checks as $check) {
             $name = strtolower(trim((string) ($check['name'] ?? '')));
@@ -128,6 +133,8 @@ final class AvailabilityLookupService
                 continue;
             }
 
+            $canonicalName = $validator->normalizeDomainName(['sld' => $labels[0], 'tld' => $labels[1]]);
+            $labels = explode('.', $canonicalName, 2);
             $searchResult = new SearchResult($labels[0], $labels[1]);
             $searchResult->setStatus(
                 !empty($check['available'])
@@ -162,6 +169,6 @@ final class AvailabilityLookupService
 
     private function searchResultKey(SearchResult $result): string
     {
-        return strtolower($result->getSecondLevel() . '.' . ltrim($result->getTopLevel(), '.'));
+        return mb_strtolower($result->getSecondLevel() . '.' . ltrim($result->getTopLevel(), '.'));
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Oblak\WHMCS\RSREG\Nameserver;
 
+use InvalidArgumentException;
 use RNIDS\Client;
 use RNIDS\Exception\ObjectAlreadyExists;
 use RNIDS\Exception\ObjectMissing;
@@ -38,22 +39,29 @@ final class HostService
     public function createSingleAddressHost(Client $client, string $nameserver, string $ipAddress): void
     {
         $addresses = $this->singleAddressSet($ipAddress);
+        $hostService = $client->host();
 
         try {
-            $client->host()->create([
-                'name' => $nameserver,
-                'addresses' => $this->toHostAddressRecords($addresses['ipv4'], $addresses['ipv6']),
-            ]);
-
-            return;
-        } catch (ObjectAlreadyExists $exception) {
-            $existing = $client->host()->info($nameserver);
-
-            if ($this->hostHasExactAddressSet($existing, $addresses['ipv4'], $addresses['ipv6'])) {
+            // RNIDS can accept create for an existing host and replace its glue.
+            // Read first so a WHMCS registration retry cannot change known glue.
+            $existing = $hostService->info($nameserver);
+        } catch (ObjectMissing) {
+            try {
+                $hostService->create([
+                    'name' => $nameserver,
+                    'addresses' => $this->toHostAddressRecords($addresses['ipv4'], $addresses['ipv6']),
+                ]);
                 return;
+            } catch (ObjectAlreadyExists) {
+                // Another request may have created the host after the read.
+                $existing = $hostService->info($nameserver);
             }
+        }
 
-            throw $exception;
+        if (!$this->hostHasExactAddressSet($existing, $addresses['ipv4'], $addresses['ipv6'])) {
+            throw new InvalidArgumentException(
+                'The nameserver already exists with different glue addresses. Use Modify Nameserver to change its IP address.',
+            );
         }
     }
 
@@ -189,9 +197,22 @@ final class HostService
      */
     private function hostHasExactAddressSet(array $hostInfo, array $expectedIpv4, array $expectedIpv6): bool
     {
-        $existingIpv4 = array_values(array_unique(array_map('strval', $hostInfo['ipv4'] ?? [])));
-        $existingIpv6 = array_values(array_unique(array_map('strval', $hostInfo['ipv6'] ?? [])));
+        return $this->normalizeAddressSet($hostInfo['ipv4'] ?? []) === $this->normalizeAddressSet($expectedIpv4)
+            && $this->normalizeAddressSet($hostInfo['ipv6'] ?? []) === $this->normalizeAddressSet($expectedIpv6);
+    }
 
-        return $existingIpv4 === $expectedIpv4 && $existingIpv6 === $expectedIpv6;
+    /**
+     * @param list<string> $addresses
+     * @return list<string>
+     */
+    private function normalizeAddressSet(array $addresses): array
+    {
+        $addresses = array_values(array_unique(array_map(
+            static fn (string $address): string => inet_pton($address) ?: $address,
+            array_map('strval', $addresses),
+        )));
+        sort($addresses, SORT_STRING);
+
+        return $addresses;
     }
 }

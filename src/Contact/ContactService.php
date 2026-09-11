@@ -6,6 +6,7 @@ namespace Oblak\WHMCS\RSREG\Contact;
 
 use InvalidArgumentException;
 use Oblak\WHMCS\RSREG\Model\ContactNormalizer;
+use Oblak\WHMCS\RSREG\Support\ModuleLogger;
 use RNIDS\Client;
 
 final class ContactService
@@ -56,6 +57,10 @@ final class ContactService
         if ($id === '') {
             throw new InvalidArgumentException(sprintf('Registry did not return contact ID for role %s.', $role));
         }
+
+        // Preserve the created handle for diagnosing pending or failed domain reassignment.
+        ModuleLogger::logModuleCall('ContactCreated', ['operation' => 'contact.create', 'role' => $role],
+            json_encode(['contactId' => $id, 'role' => $role], JSON_THROW_ON_ERROR));
 
         return $id;
     }

@@ -48,6 +48,8 @@ final class ContactDataMapper
             : $params;
 
         $contacts = [];
+        $hasRoleInput = (array_key_exists('contactdetails', $params) && $params['contactdetails'] !== [])
+            || array_intersect(['Registrant', 'Admin', 'Tech', 'Billing'], array_keys($source)) !== [];
         foreach (['Registrant', 'Admin', 'Tech'] as $role) {
             if (!isset($source[$role]) || !is_array($source[$role])) {
                 continue;
@@ -63,7 +65,7 @@ final class ContactDataMapper
         }
 
         $baseContact = $this->normalizeWhmcsContactData($params);
-        if (!$this->isContactDataEmpty($baseContact)) {
+        if (!$hasRoleInput && !$this->isContactDataEmpty($baseContact)) {
             foreach (['Registrant', 'Admin', 'Tech'] as $role) {
                 if (!isset($contacts[$role])) {
                     $contacts[$role] = $baseContact;

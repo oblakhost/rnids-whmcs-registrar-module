@@ -98,7 +98,7 @@ function rnids_config_validate($params) {
             throw new \RuntimeException('Remote registry health check failed.');
         }
 
-        logModuleCall('rnids', 'configValidate',$params, ['success' => true, 'responseMeta' => $meta], '', array_intersect_key($params, array_flip(['epp_username', 'epp_password', 'epp_certificate', 'epp_ca', 'epp_certificate_password'])));
+        ModuleLogger::logModuleCall('ConfigValidate', $params, ['success' => true, 'responseMeta' => $meta]);
 
     } catch (\Throwable $e) {
         ModuleLogger::logModuleCall(
@@ -114,7 +114,10 @@ function rnids_config_validate($params) {
             ],
             ModuleLogger::exceptionContext($e)
         );
-        throw new InvalidConfiguration('Connection test failed: ' . $e->getMessage());
+        throw new InvalidConfiguration(\Oblak\WHMCS\RSREG\Support\ErrorMessageFormatter::safeMessage(
+            $e,
+            'Connection test failed. Check the RNIDS credentials and certificate configuration.'
+        ));
     } finally {
         if ($client instanceof Client) {
             try {

@@ -1,6 +1,15 @@
 {
   "require": {
-    "rnids/rsreg-epp-client": "^1.0"
+    "rnids/rsreg-epp-client": "dev-fix/dev-integration-readiness#421256a7d019db47d9517415fd05aad83897a6ee"
+  },
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "https://github.com/oblakhost/rnids-rsreg-client-php"
+    }
+  ],
+  "suggest": {
+    "ext-intl": "Required for Unicode and Punycode RNIDS domain normalization"
   },
   "autoload": {
     "psr-4": {
@@ -17,7 +26,16 @@
       "type": "registrars",
       "data": [
         {
-          "src": ["whmcs.json", "logo*", "src/", "vendor/", "rnids.php", "hooks.php", "dist.knownhosts.php"],
+          "src": [
+            "whmcs.json",
+            "logo*",
+            "src/",
+            "vendor/",
+            "rnids.php",
+            "rnids.additionalfields.php",
+            "hooks.php",
+            "dist.knownhosts.php"
+          ],
           "dst": "modules/{type}/{slug}"
         }
       ]

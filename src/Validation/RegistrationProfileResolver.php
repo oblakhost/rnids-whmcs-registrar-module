@@ -61,10 +61,6 @@ final class RegistrationProfileResolver
             $contact['Tax Number'] ?? null,
         ]);
 
-        if ($companyName !== '' && $companyNumber === '' && $taxNumber !== '') {
-            $companyNumber = $taxNumber;
-        }
-
         if ($registrantType === 'company') {
             if ($companyName === '' || $companyNumber === '' || $taxNumber === '') {
                 throw new InvalidArgumentException(

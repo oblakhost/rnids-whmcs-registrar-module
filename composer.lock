@@ -4,24 +4,26 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5cf019a12c304087fefa0473d9735052",
+    "content-hash": "c892d869a6bc96613107d7a6079c0af4",
     "packages": [
         {
             "name": "rnids/rsreg-epp-client",
-            "version": "v1.1.0",
+            "version": "dev-fix/dev-integration-readiness",
             "source": {
                 "type": "git",
                 "url": "https://github.com/oblakhost/rnids-rsreg-client-php.git",
-                "reference": "a9efc74fd6927e497facac92980fe26911ed6461"
+                "reference": "421256a7d019db47d9517415fd05aad83897a6ee"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/oblakhost/rnids-rsreg-client-php/zipball/a9efc74fd6927e497facac92980fe26911ed6461",
-                "reference": "a9efc74fd6927e497facac92980fe26911ed6461",
+                "url": "https://api.github.com/repos/oblakhost/rnids-rsreg-client-php/zipball/421256a7d019db47d9517415fd05aad83897a6ee",
+                "reference": "421256a7d019db47d9517415fd05aad83897a6ee",
                 "shasum": ""
             },
             "require": {
+                "ext-dom": "*",
                 "ext-json": "*",
+                "ext-openssl": "*",
                 "php": ">=8.1"
             },
             "require-dev": {
@@ -32,6 +34,9 @@
                 "phpunit/phpunit": "^10.5",
                 "symfony/var-dumper": "^6.4"
             },
+            "suggest": {
+                "ext-intl": "Required to accept Unicode domain and host names; ASCII Punycode input works without it"
+            },
             "bin": [
                 "bin/rsreg"
             ],
@@ -41,16 +46,52 @@
                     "RNIDS\\": "src/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
+            "autoload-dev": {
+                "psr-4": {
+                    "Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "phpcs": [
+                    "vendor/bin/phpcs"
+                ],
+                "phpstan": [
+                    "vendor/bin/phpstan analyse"
+                ],
+                "test:unit": [
+                    "vendor/bin/phpunit --testsuite unit"
+                ],
+                "test:live": [
+                    "vendor/bin/phpunit --testsuite integration --fail-on-skipped"
+                ],
+                "test:coverage": [
+                    "mkdir -p build",
+                    "php -d pcov.enabled=1 vendor/bin/phpunit --testsuite unit --coverage-clover build/coverage.xml --coverage-text",
+                    "php bin/coverage-gate.php build/coverage.xml 90"
+                ],
+                "test:coverage:ci": [
+                    "mkdir -p build",
+                    "php -d pcov.enabled=1 vendor/bin/phpunit --testsuite unit --coverage-clover build/coverage.xml",
+                    "php bin/coverage-gate.php build/coverage.xml 90"
+                ],
+                "test:local": [
+                    "@test:unit",
+                    "@phpstan",
+                    "@phpcs"
+                ],
+                "test": [
+                    "@test:local"
+                ]
+            },
             "license": [
                 "Apache-2.0"
             ],
             "description": "PHP client for the RSREG EPP server",
             "support": {
-                "issues": "https://github.com/oblakhost/rnids-rsreg-client-php/issues",
-                "source": "https://github.com/oblakhost/rnids-rsreg-client-php/tree/v1.1.0"
+                "source": "https://github.com/oblakhost/rnids-rsreg-client-php/tree/fix/dev-integration-readiness",
+                "issues": "https://github.com/oblakhost/rnids-rsreg-client-php/issues"
             },
-            "time": "2026-03-06T03:15:22+00:00"
+            "time": "2026-09-11T21:03:55+00:00"
         }
     ],
     "packages-dev": [
@@ -342,7 +383,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "rnids/rsreg-epp-client": 20
+    },
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {},
