@@ -616,12 +616,12 @@ foreach (['on' => ['epp-test.rnids.rs', false, true], 'off' => ['epp.rnids.rs', 
         Suite::same('OFFLINE-PASSPHRASE', $config['tls']['clientCertificatePassword']);
     });
 }
-foreach (['on' => 'hello', 'off' => 'unsolicited'] as $mode => $greetingMode) {
+foreach (['on' => 'hello', 'off' => 'hello'] as $mode => $greetingMode) {
     $suite->test('client/greeting-mode/' . $mode, static function () use ($mode, $greetingMode): void {
         Suite::same($greetingMode, ClientFactory::buildClientParams(['testmode' => $mode])['greetingMode'] ?? null);
     });
     $suite->test('client/transaction-id-policy/' . $mode, static function () use ($mode): void {
-        Suite::same($mode !== 'on', ClientFactory::buildClientParams(['testmode' => $mode])['requireClientTransactionId'] ?? null);
+        Suite::same(false, ClientFactory::buildClientParams(['testmode' => $mode])['requireClientTransactionId'] ?? null);
     });
 }
 $suite->test('client/production-is-default', static function (): void {

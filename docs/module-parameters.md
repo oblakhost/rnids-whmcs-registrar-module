@@ -24,7 +24,7 @@ later 2.x release. The lockfile selects the published v2.0.1 distribution.
 
 - Production mode (`testmode` disabled): peer verification is enabled (`verifyPeer=true`, `verifyPeerName=true`).
 - Test mode (`testmode` enabled): test endpoint `epp-test.rnids.rs` is used with relaxed TLS checks for sandbox compatibility.
-- The test endpoint requires an explicit EPP hello and may omit the client transaction ID in replies. Test mode enables these SDK compatibility options. A present, mismatched transaction ID still fails. Production retains unsolicited greeting and required transaction IDs.
+- Both RNIDS endpoints require an explicit EPP hello and may omit the client transaction ID in replies. The module enables these SDK compatibility options in both environments. A present, mismatched transaction ID still fails. Production TLS peer and hostname verification remain enabled.
 - Each registrar instance owns its own lazy client; credentials and endpoint settings are never shared through a static connection.
 - `epp_certificate_password` is optional and used only when the client certificate is passphrase-protected.
 
