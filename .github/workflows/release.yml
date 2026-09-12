@@ -42,8 +42,9 @@ jobs:
           quiet: yes
           args: --optimize-autoloader --classmap-authoritative --prefer-dist
       - name: Semantic Release
-        uses: cycjimmy/semantic-release-action@v4
+        uses: cycjimmy/semantic-release-action@v6
         with:
+          semantic_version: 25.0.8
           extra_plugins: |
             conventional-changelog-conventionalcommits@8
             @semantic-release/github
