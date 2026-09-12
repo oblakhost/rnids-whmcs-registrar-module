@@ -34,7 +34,7 @@ jobs:
       - name: Install Composer dependencies
         uses: php-actions/composer@v6
         env:
-          COMPOSER_AUTH: '{"http-basic": {"repo.packagist.com": {"username": "token", "password": "${{ secrets.PACKAGIST_TOKEN }}"}}, "github-oauth": {"github.com": "${{ secrets.COMPOSER_PAT }}"}}'
+          COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ github.token }}"}}'
         with:
           php_version: "8.1"
           php_extensions: zip
