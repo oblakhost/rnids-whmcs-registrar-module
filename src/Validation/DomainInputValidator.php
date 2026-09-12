@@ -31,7 +31,18 @@ final class DomainInputValidator
      */
     public function paramsToDomain(array|string $params): string
     {
-        return is_array($params) ? "{$params['sld']}.{$params['tld']}" : $params;
+        if (is_string($params)) {
+            $labels = explode('.', $params, 2);
+            $params = ['sld' => $labels[0], 'tld' => $labels[1] ?? ''];
+        }
+
+        $domain = $this->normalizeDomainName($params);
+        $tld = $this->normalizeTld($params);
+        if (!in_array($tld, $this->supportedTlds(), true)) {
+            throw new InvalidArgumentException(sprintf('Unsupported TLD for RNIDS: .%s', $tld));
+        }
+
+        return $domain;
     }
 
     /**
@@ -39,14 +50,18 @@ final class DomainInputValidator
      */
     public function normalizeDomainName(array $params): string
     {
-        $sld = strtolower(trim((string) ($params['sld'] ?? '')));
+        $sld = $this->normalizeLabel($params['sld'] ?? null);
         $tld = $this->normalizeTld($params);
+        $domain = $sld . '.' . $tld;
+        $asciiDomain = function_exists('idn_to_ascii')
+            ? idn_to_ascii($domain, IDNA_NONTRANSITIONAL_TO_ASCII, INTL_IDNA_VARIANT_UTS46)
+            : $domain;
 
-        if ($sld === '' || $tld === '') {
+        if ($asciiDomain === false || strlen($asciiDomain) > 253) {
             throw new InvalidArgumentException('Domain name is missing or invalid for registration.');
         }
 
-        return $sld . '.' . $tld;
+        return $domain;
     }
 
     /**
@@ -54,11 +69,25 @@ final class DomainInputValidator
      */
     public function normalizeTld(array $params): string
     {
-        return strtolower(ltrim(trim((string) ($params['tld'] ?? '')), '.'));
+        $tld = $params['tld'] ?? null;
+        if (!is_string($tld) || str_contains($tld, "\0")) {
+            throw new InvalidArgumentException('Domain TLD is missing or invalid.');
+        }
+
+        $tld = trim($tld);
+        if (preg_match('/\s/u', $tld) !== 0) {
+            throw new InvalidArgumentException('Domain TLD is missing or invalid.');
+        }
+        if (str_starts_with($tld, '.')) {
+            $tld = substr($tld, 1);
+        }
+
+        return implode('.', array_map($this->normalizeLabel(...), explode('.', $tld)));
     }
 
     public function validateRegistrationTld(string $tld): void
     {
+        $tld = $this->normalizeTld(['tld' => $tld]);
         if (!in_array($tld, $this->supportedTlds(), true)) {
             throw new InvalidArgumentException(sprintf('Unsupported TLD for RNIDS registration: .%s', $tld));
         }
@@ -66,6 +95,7 @@ final class DomainInputValidator
 
     public function validateTransferTld(string $tld): void
     {
+        $tld = $this->normalizeTld(['tld' => $tld]);
         if (!in_array($tld, $this->supportedTlds(), true)) {
             throw new InvalidArgumentException(sprintf('Unsupported TLD for RNIDS transfer: .%s', $tld));
         }
@@ -91,8 +121,12 @@ final class DomainInputValidator
      */
     public function resolveRegistrationPeriod(array $params): int
     {
-        $period = (int) ($params['regperiod'] ?? 0);
-        if ($period < 1 || $period > 10) {
+        $period = $params['regperiod'] ?? null;
+        if (is_string($period) && preg_match('/^(?:[1-9]|10)$/D', $period) === 1) {
+            return (int) $period;
+        }
+
+        if (!is_int($period) || $period < 1 || $period > 10) {
             throw new InvalidArgumentException('Registration period must be between 1 and 10 years.');
         }
 
@@ -132,5 +166,45 @@ final class DomainInputValidator
     public function supportedTlds(): array
     {
         return array_merge(self::REGISTRATION_TLDS_INDIVIDUAL_OR_COMPANY, self::REGISTRATION_TLDS_COMPANY_ONLY);
+    }
+
+    /**
+     * Keep Unicode at the module boundary; enforce DNS limits on the IDNA form.
+     */
+    private function normalizeLabel(mixed $value): string
+    {
+        $error = 'Domain name is missing or invalid for registration.';
+        if (!is_string($value) || str_contains($value, "\0")) {
+            throw new InvalidArgumentException($error);
+        }
+
+        $label = mb_strtolower(trim($value), 'UTF-8');
+        if ($label === '') {
+            throw new InvalidArgumentException($error);
+        }
+
+        $ascii = $label;
+        if (preg_match('/[^\x00-\x7f]/', $label) === 1 || str_starts_with($label, 'xn--')) {
+            if (!function_exists('idn_to_ascii') || !function_exists('idn_to_utf8')) {
+                throw new InvalidArgumentException('IDN domain names require the PHP intl extension.');
+            }
+
+            $validationFlags = IDNA_USE_STD3_RULES | IDNA_CHECK_BIDI | IDNA_CHECK_CONTEXTJ;
+            $ascii = idn_to_ascii($label, $validationFlags | IDNA_NONTRANSITIONAL_TO_ASCII, INTL_IDNA_VARIANT_UTS46, $details);
+            if ($ascii === false || ($details['errors'] ?? 0) !== 0) {
+                throw new InvalidArgumentException($error);
+            }
+
+            $label = idn_to_utf8($ascii, $validationFlags | IDNA_NONTRANSITIONAL_TO_UNICODE, INTL_IDNA_VARIANT_UTS46, $details);
+            if ($label === false || ($details['errors'] ?? 0) !== 0) {
+                throw new InvalidArgumentException($error);
+            }
+        }
+
+        if (strlen($ascii) > 63 || preg_match('/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/D', $ascii) !== 1) {
+            throw new InvalidArgumentException($error);
+        }
+
+        return $label;
     }
 }

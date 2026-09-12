@@ -5,10 +5,6 @@ declare(strict_types=1);
 namespace Oblak\WHMCS\RSREG\Nameserver;
 
 use RNIDS\Client;
-use RNIDS\Exception\ProtocolExceptionFactory;
-use RNIDS\Xml\NamespaceRegistry;
-use RNIDS\Xml\Response\ResponseMetadataParser;
-use RNIDS\Xml\XmlComposer;
 
 final class DomainNameserverUpdater
 {
@@ -24,61 +20,36 @@ final class DomainNameserverUpdater
         array $toRemove,
         array $knownHosts,
     ): void {
-        $clTrid = sprintf('RNIDS-NS-%d', random_int(100000, 999999));
-        $xml = '<?xml version="1.0" encoding="UTF-8"?>'
-            . '<epp xmlns="' . NamespaceRegistry::EPP . '">'
-            . '<command>'
-            . '<update>'
-            . '<domain:update xmlns:domain="' . NamespaceRegistry::DOMAIN . '">'
-            . XmlComposer::element('domain:name', $domainName)
-            . $this->domainNameserverSectionXml('domain:add', $toAdd, $knownHosts)
-            . $this->domainNameserverSectionXml('domain:rem', $toRemove, $knownHosts)
-            . '</domain:update>'
-            . '</update>'
-            . '<clTRID>' . XmlComposer::escape($clTrid) . '</clTRID>'
-            . '</command>'
-            . '</epp>';
-
-        $transport = $client->transport();
-        $transport->writeFrame($xml);
-        $responseXml = $transport->readFrame();
-
-        $metadata = (new ResponseMetadataParser())->parse($responseXml);
-        if (!$metadata->isSuccess()) {
-            throw ProtocolExceptionFactory::fromMetadata($metadata);
+        $payload = ['name' => $domainName];
+        foreach (['add' => $toAdd, 'remove' => $toRemove] as $section => $nameservers) {
+            if ($nameservers !== []) {
+                $payload[$section] = ['nameservers' => $this->nameserverPayloads($nameservers, $knownHosts)];
+            }
         }
+
+        // The SDK owns IDNA encoding, consistent host forms, and IP version tags.
+        $client->domain()->update($payload);
     }
 
     /**
      * @param list<string> $nameservers
      * @param array<string, array{ipv4:list<string>, ipv6:list<string>}> $knownHosts
+     * @return list<array{name:string, addresses?:list<array{address:string, ipVersion:string}>}>
      */
-    private function domainNameserverSectionXml(string $sectionNode, array $nameservers, array $knownHosts): string
+    private function nameserverPayloads(array $nameservers, array $knownHosts): array
     {
-        if ($nameservers === []) {
-            return '';
-        }
-
-        $nsXml = '';
+        $payloads = [];
         foreach ($nameservers as $nameserver) {
             $known = $knownHosts[$nameserver] ?? ['ipv4' => [], 'ipv6' => []];
-            $addresses = array_merge($known['ipv4'], $known['ipv6']);
-
-            if ($addresses === []) {
-                $nsXml .= XmlComposer::element('domain:hostObj', $nameserver);
-                continue;
+            $payload = ['name' => $nameserver];
+            foreach (['ipv4' => 'v4', 'ipv6' => 'v6'] as $key => $version) {
+                foreach ($known[$key] as $address) {
+                    $payload['addresses'][] = ['address' => $address, 'ipVersion' => $version];
+                }
             }
-
-            $nsXml .= '<domain:hostAttr>'
-                . XmlComposer::element('domain:hostName', $nameserver);
-
-            foreach ($addresses as $address) {
-                $nsXml .= XmlComposer::element('domain:hostAddr', $address);
-            }
-
-            $nsXml .= '</domain:hostAttr>';
+            $payloads[] = $payload;
         }
 
-        return '<' . $sectionNode . '><domain:ns>' . $nsXml . '</domain:ns></' . $sectionNode . '>';
+        return $payloads;
     }
 }

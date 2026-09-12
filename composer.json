@@ -1,6 +1,9 @@
 {
   "require": {
-    "rnids/rsreg-epp-client": "^1.0"
+    "rnids/rsreg-epp-client": "^2.0.1"
+  },
+  "suggest": {
+    "ext-intl": "Required for Unicode and Punycode RNIDS domain normalization"
   },
   "autoload": {
     "psr-4": {
@@ -17,7 +20,16 @@
       "type": "registrars",
       "data": [
         {
-          "src": ["whmcs.json", "logo*", "src/", "vendor/", "rnids.php", "hooks.php", "dist.knownhosts.php"],
+          "src": [
+            "whmcs.json",
+            "logo*",
+            "src/",
+            "vendor/",
+            "rnids.php",
+            "rnids.additionalfields.php",
+            "hooks.php",
+            "dist.knownhosts.php"
+          ],
           "dst": "modules/{type}/{slug}"
         }
       ]

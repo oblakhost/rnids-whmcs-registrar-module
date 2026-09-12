@@ -61,7 +61,8 @@ final class RegistrationProfileResolver
             $contact['Tax Number'] ?? null,
         ]);
 
-        if ($companyName !== '' && $companyNumber === '' && $taxNumber !== '') {
+        // Use the registrant's VAT ID when no separate company number was supplied.
+        if ($companyNumber === '' && $companyName !== '') {
             $companyNumber = $taxNumber;
         }
 

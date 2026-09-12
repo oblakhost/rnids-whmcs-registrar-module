@@ -4,24 +4,26 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5cf019a12c304087fefa0473d9735052",
+    "content-hash": "c477163b74310cb2bd101d2c04c845e4",
     "packages": [
         {
             "name": "rnids/rsreg-epp-client",
-            "version": "v1.1.0",
+            "version": "v2.0.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/oblakhost/rnids-rsreg-client-php.git",
-                "reference": "a9efc74fd6927e497facac92980fe26911ed6461"
+                "reference": "3b9bac76c823227a8602d844dcca43574499ec04"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/oblakhost/rnids-rsreg-client-php/zipball/a9efc74fd6927e497facac92980fe26911ed6461",
-                "reference": "a9efc74fd6927e497facac92980fe26911ed6461",
+                "url": "https://api.github.com/repos/oblakhost/rnids-rsreg-client-php/zipball/3b9bac76c823227a8602d844dcca43574499ec04",
+                "reference": "3b9bac76c823227a8602d844dcca43574499ec04",
                 "shasum": ""
             },
             "require": {
+                "ext-dom": "*",
                 "ext-json": "*",
+                "ext-openssl": "*",
                 "php": ">=8.1"
             },
             "require-dev": {
@@ -31,6 +33,9 @@
                 "phpstan/phpstan-phpunit": "^1.4",
                 "phpunit/phpunit": "^10.5",
                 "symfony/var-dumper": "^6.4"
+            },
+            "suggest": {
+                "ext-intl": "Required to accept Unicode domain and host names; ASCII Punycode input works without it"
             },
             "bin": [
                 "bin/rsreg"
@@ -45,12 +50,12 @@
             "license": [
                 "Apache-2.0"
             ],
-            "description": "PHP client for the RSREG EPP server",
+            "description": "Independent third-party PHP client for RNIDS/RSreg EPP; unaffiliated with RNIDS",
             "support": {
                 "issues": "https://github.com/oblakhost/rnids-rsreg-client-php/issues",
-                "source": "https://github.com/oblakhost/rnids-rsreg-client-php/tree/v1.1.0"
+                "source": "https://github.com/oblakhost/rnids-rsreg-client-php/tree/v2.0.1"
             },
-            "time": "2026-03-06T03:15:22+00:00"
+            "time": "2026-09-12T15:16:24+00:00"
         }
     ],
     "packages-dev": [

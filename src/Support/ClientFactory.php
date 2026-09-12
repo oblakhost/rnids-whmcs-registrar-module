@@ -30,6 +30,8 @@ final class ClientFactory
         return [
             'host' => $testmode ? 'epp-test.rnids.rs' : 'epp.rnids.rs',
             'port' => 700,
+            'greetingMode' => $testmode ? 'hello' : 'unsolicited',
+            'requireClientTransactionId' => !$testmode,
             'username' => $moduleParams['epp_username'] ?? '',
             'password' => $moduleParams['epp_password'] ?? '',
             'tls' => $tls,
