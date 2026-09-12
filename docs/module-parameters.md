@@ -4,6 +4,9 @@ Reference: https://developers.whmcs.com/domain-registrars/module-parameters/
 
 This document summarizes the parameters WHMCS can pass to registrar module functions and highlights fields used by this RNIDS module.
 
+The module requires `rnids/rsreg-epp-client` `^2.0.1`: version 2.0.1 or a compatible
+later 2.x release. The lockfile selects the published v2.0.1 distribution.
+
 ## Common Parameters (Frequently Present)
 
 - `registrar` — active registrar module name.
@@ -90,6 +93,9 @@ does not inherit the account holder's VAT ID.
 
 Registration checks the required registrant payload fields and
 configured technical handle before opening an EPP connection.
+SDK 2.0.1 requires a nonempty contact phone number. Registration and contact
+changes check for that value before registry access and return an actionable
+missing-phone error. This is a required-field check, with no phone-format check.
 
 The optional `rnids.additionalfields.php` definitions default company-only TLDs
 to Company and allow blank Company Number and Tax Number overrides so registration

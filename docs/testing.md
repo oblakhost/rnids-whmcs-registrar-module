@@ -75,6 +75,24 @@ delivery require separate fixtures or final application testing. The script
 explicitly reports these exclusions and does not acknowledge arbitrary poll
 messages or send EPP-code/IRTP emails.
 
+## Client-area IRTP banners
+
+Log into the account that owns the test domain, or use the admin client's
+Login as Client action. Open Domains → My Domains → Manage Domain → Contact
+Information. The direct route is
+`clientarea.php?action=domaincontacts&domainid=<WHMCS-domain-id>`.
+
+The active Lagom template displays an informational **Contact Change Pending**
+banner above the contact form when the domain is manageable, IRTP is enabled,
+and the module reports a pending contact-verification process. If the module also
+reports pending suspension, the template displays **Verification Required**
+instead. Check again after registry approval to verify that the pending flag and
+banner clear. Registry pending flags alone do not confirm completed approval or
+delivered email.
+
+The current Resend Verification Email handler sends an admin notification for
+manual handling in RNIDS. It does not automatically resend the registry email.
+
 ## SDK live lifecycle coverage
 
 The SDK source repository supplies a separate PHPUnit integration suite:

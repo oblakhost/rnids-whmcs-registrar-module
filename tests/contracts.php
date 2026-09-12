@@ -704,6 +704,20 @@ foreach (['Email Address', 'City', 'Country'] as $field) {
         Suite::noRegistry();
     });
 }
+foreach (['missing' => null, 'blank' => '   '] as $case => $phone) {
+    $suite->test('registration/fail-fast/phone-' . $case, static function () use ($phone): void {
+        $contact = baseContact();
+        if ($phone === null) {
+            unset($contact['Phone Number']);
+        } else {
+            $contact['Phone Number'] = $phone;
+        }
+        $result = \rnids_RegisterDomain(array_replace(baseParams(), ['contactdetails' => ['Registrant' => $contact]]));
+        Suite::errorResponse($result);
+        Suite::truth(str_contains($result['error'], 'Contact phone number is required.'), 'Phone error must be actionable');
+        Suite::noRegistry();
+    });
+}
 $suite->test('registration/fail-fast/missing-tech-handle', static function (): void {
     Suite::errorResponse(\rnids_RegisterDomain(array_replace(baseParams(), ['admin_id' => ''])));
     Suite::noRegistry();
@@ -749,6 +763,16 @@ foreach (['Registrant', 'Admin', 'Tech'] as $invalidRole) {
     });
 }
 
+foreach (['Registrant', 'Admin', 'Tech'] as $role) {
+    $suite->test('contact-save/fail-fast/phone-' . $role, static function () use ($role): void {
+        $contacts = array_fill_keys(['Registrant', 'Admin', 'Tech'], baseContact());
+        $contacts[$role]['Phone Number'] = '   ';
+        $result = \rnids_SaveContactDetails(array_replace(baseParams(), ['contactdetails' => $contacts]));
+        Suite::errorResponse($result);
+        Suite::truth(str_contains($result['error'], 'Contact phone number is required.'), 'Phone error must be actionable');
+        Suite::noRegistry();
+    });
+}
 foreach (['Registrant', 'Admin', 'Tech'] as $role) {
     $suite->test('contact-save/immutable/' . $role, static function () use ($role): void {
         scriptContacts();

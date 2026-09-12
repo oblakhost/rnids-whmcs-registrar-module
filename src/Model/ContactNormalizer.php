@@ -91,6 +91,7 @@ final class ContactNormalizer
         }
 
         $email = trim((string) ($contact['Email Address'] ?? ''));
+        $phoneNumber = trim((string) ($contact['Phone Number'] ?? ''));
         $city = trim((string) ($contact['City'] ?? ''));
         $country = strtoupper(trim((string) ($contact['Country'] ?? '')));
 
@@ -101,6 +102,7 @@ final class ContactNormalizer
             $taxNumber,
             $isLegalEntityWithRequiredIdentifiers,
             $email,
+            $phoneNumber,
             $city,
             $country
         );
@@ -121,7 +123,7 @@ final class ContactNormalizer
         return [
             'postalInfo' => $postalInfo,
             'email' => $email,
-            'voice' => self::nullable(trim((string) ($contact['Phone Number'] ?? ''))),
+            'voice' => $phoneNumber,
             'extension' => [
                 'ident' => self::nullable($companyNumber),
                 'identKind' => ($companyNumber !== '' || $taxNumber !== '') ? 'personal_ID' : null,
@@ -226,6 +228,7 @@ final class ContactNormalizer
         string $taxNumber,
         bool $isLegalEntityWithRequiredIdentifiers,
         string $email,
+        string $phoneNumber,
         string $city,
         string $country
     ): void {
@@ -243,6 +246,10 @@ final class ContactNormalizer
 
         if ($email === '') {
             throw new InvalidArgumentException('Contact email address is required.');
+        }
+
+        if ($phoneNumber === '') {
+            throw new InvalidArgumentException('Contact phone number is required.');
         }
 
         if ($city === '') {

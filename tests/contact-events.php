@@ -31,7 +31,7 @@ final class LogCapture
 class_alias(LogCapture::class, 'RnidsContractTests\\FakeRegistry');
 require __DIR__ . '/contracts/whmcs-functions.php';
 
-$contact = ['First Name' => 'Synthetic', 'Last Name' => 'Person', 'City' => 'Belgrade', 'Country' => 'RS', 'Email Address' => 'private-fixture@example.invalid'];
+$contact = ['First Name' => 'Synthetic', 'Last Name' => 'Person', 'City' => 'Belgrade', 'Country' => 'RS', 'Email Address' => 'private-fixture@example.invalid', 'Phone Number' => '+381.111234567'];
 $service = new \Oblak\WHMCS\RSREG\Contact\ContactService();
 $id = $service->createContactFromWhmcsDetails(new FakeClient(['id' => 'OFFLINE-CREATED-CONTACT']), 'Registrant', $contact);
 $event = LogCapture::$logs[0] ?? [];

@@ -1,13 +1,7 @@
 {
   "require": {
-    "rnids/rsreg-epp-client": "dev-fix/dev-integration-readiness#421256a7d019db47d9517415fd05aad83897a6ee"
+    "rnids/rsreg-epp-client": "^2.0.1"
   },
-  "repositories": [
-    {
-      "type": "vcs",
-      "url": "https://github.com/oblakhost/rnids-rsreg-client-php"
-    }
-  ],
   "suggest": {
     "ext-intl": "Required for Unicode and Punycode RNIDS domain normalization"
   },

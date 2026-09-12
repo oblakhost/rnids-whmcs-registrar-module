@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c892d869a6bc96613107d7a6079c0af4",
+    "content-hash": "c477163b74310cb2bd101d2c04c845e4",
     "packages": [
         {
             "name": "rnids/rsreg-epp-client",
-            "version": "dev-fix/dev-integration-readiness",
+            "version": "v2.0.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/oblakhost/rnids-rsreg-client-php.git",
-                "reference": "421256a7d019db47d9517415fd05aad83897a6ee"
+                "reference": "3b9bac76c823227a8602d844dcca43574499ec04"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/oblakhost/rnids-rsreg-client-php/zipball/421256a7d019db47d9517415fd05aad83897a6ee",
-                "reference": "421256a7d019db47d9517415fd05aad83897a6ee",
+                "url": "https://api.github.com/repos/oblakhost/rnids-rsreg-client-php/zipball/3b9bac76c823227a8602d844dcca43574499ec04",
+                "reference": "3b9bac76c823227a8602d844dcca43574499ec04",
                 "shasum": ""
             },
             "require": {
@@ -46,52 +46,16 @@
                     "RNIDS\\": "src/"
                 }
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "Tests\\": "tests/"
-                }
-            },
-            "scripts": {
-                "phpcs": [
-                    "vendor/bin/phpcs"
-                ],
-                "phpstan": [
-                    "vendor/bin/phpstan analyse"
-                ],
-                "test:unit": [
-                    "vendor/bin/phpunit --testsuite unit"
-                ],
-                "test:live": [
-                    "vendor/bin/phpunit --testsuite integration --fail-on-skipped"
-                ],
-                "test:coverage": [
-                    "mkdir -p build",
-                    "php -d pcov.enabled=1 vendor/bin/phpunit --testsuite unit --coverage-clover build/coverage.xml --coverage-text",
-                    "php bin/coverage-gate.php build/coverage.xml 90"
-                ],
-                "test:coverage:ci": [
-                    "mkdir -p build",
-                    "php -d pcov.enabled=1 vendor/bin/phpunit --testsuite unit --coverage-clover build/coverage.xml",
-                    "php bin/coverage-gate.php build/coverage.xml 90"
-                ],
-                "test:local": [
-                    "@test:unit",
-                    "@phpstan",
-                    "@phpcs"
-                ],
-                "test": [
-                    "@test:local"
-                ]
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "Apache-2.0"
             ],
-            "description": "PHP client for the RSREG EPP server",
+            "description": "Independent third-party PHP client for RNIDS/RSreg EPP; unaffiliated with RNIDS",
             "support": {
-                "source": "https://github.com/oblakhost/rnids-rsreg-client-php/tree/fix/dev-integration-readiness",
-                "issues": "https://github.com/oblakhost/rnids-rsreg-client-php/issues"
+                "issues": "https://github.com/oblakhost/rnids-rsreg-client-php/issues",
+                "source": "https://github.com/oblakhost/rnids-rsreg-client-php/tree/v2.0.1"
             },
-            "time": "2026-09-11T21:03:55+00:00"
+            "time": "2026-09-12T15:16:24+00:00"
         }
     ],
     "packages-dev": [
@@ -383,9 +347,7 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {
-        "rnids/rsreg-epp-client": 20
-    },
+    "stability-flags": {},
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {},

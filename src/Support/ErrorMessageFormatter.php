@@ -68,6 +68,7 @@ final class ErrorMessageFormatter
             'Contact name is required.',
             'Company Name is required when Company Number or Tax Number is provided.',
             'Contact email address is required.',
+            'Contact phone number is required.',
             'Contact city is required.',
             'Contact country code is required.',
         ];
