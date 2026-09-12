@@ -93,6 +93,8 @@ final class ContactDataMapper
                 'taxnumber',
                 'Tax ID',
                 'tax_id',
+                'VAT ID',
+                'vat_id',
                 'VAT Number',
                 'vat number',
                 'vatnumber',
@@ -119,6 +121,9 @@ final class ContactDataMapper
                 }
 
                 $value = trim((string) $contactData[$possibleKey]);
+                if ($targetKey === 'Tax Number' && $value === '') {
+                    continue;
+                }
                 break;
             }
 

@@ -77,12 +77,26 @@ This module normalizes common WHMCS key variants before sending data to RNIDS EP
 
 For legal entities in this module:
 
-- if `Company Name` is present and both `Company Number` (8 digits) and `Tax Number` (9 digits) are valid,
+- if `Company Name`, `Company Number`, and `Tax Number` are present,
 - first/last name are treated as optional and company identity is used for contact create payload.
 
-Company number and tax number are independent fields; a tax number does not fill
-a missing company number. Registration validates the full registrant payload and
+For registration, an empty company number is filled from the registrant's resolved
+tax number / VAT ID (`tax_id`, `VAT ID`, `vat_id`, and the existing tax/VAT aliases).
+Explicit company numbers, including mapped `reg_mb` values, take precedence.
+Identifiers are passed through after trimming surrounding whitespace; the module
+does not check their length, format, checksum, or accuracy. The registrant is
+responsible for providing correct information. An explicitly selected registrant
+does not inherit the account holder's VAT ID.
+
+Registration checks the required registrant payload fields and
 configured technical handle before opening an EPP connection.
+
+The optional `rnids.additionalfields.php` definitions default company-only TLDs
+to Company and allow blank Company Number and Tax Number overrides so registration
+can use the registrant VAT ID. Include that file from WHMCS
+`resources/domains/additionalfields.php` if domain-specific checkout fields are
+wanted. Configure `.co.rs` Auto Registration as `rnids` in WHMCS Domain Pricing;
+registrar routing is a WHMCS setting, independent of the field mapping.
 
 Domain inputs accept Unicode or equivalent Punycode for supported RNIDS suffixes.
 The module uses canonical Unicode for lookup results and the SDK emits ASCII IDNA

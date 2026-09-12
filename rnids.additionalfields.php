@@ -3,8 +3,8 @@
 /**
  * RNIDS additional domain fields for WHMCS.
  *
- * WHMCS loads this file automatically when named:
- *   <registrar_module>.additionalfields.php
+ * Include this optional file from WHMCS resources/domains/additionalfields.php
+ * to provide domain-specific overrides for the registrant's account details.
  *
  * @see https://docs.whmcs.com/9-0/domains/pricing-and-configuration/custom-domain-fields/
  */
@@ -15,7 +15,7 @@ $requiredWhenCompany = [
     'Registrant Type' => ['Company'],
 ];
 
-$rs_fields = [
+$rs_ind_fields = [
     [
         'Name' => 'Registrant Type',
         'Type' => 'dropdown',
@@ -39,13 +39,15 @@ $rs_fields = [
         'Name' => 'Company Number',
         'Type' => 'text',
         'Size' => '30',
-        'Required' => $requiredWhenCompany,
+        'Required' => false,
+        'Description' => 'Leave blank to use the registrant VAT ID.',
     ],
     [
         'Name' => 'Tax Number',
         'Type' => 'text',
         'Size' => '30',
-        'Required' => $requiredWhenCompany,
+        'Required' => false,
+        'Description' => 'Leave blank to use the registrant VAT ID.',
     ],
 ];
 
@@ -53,8 +55,8 @@ $rs_cmp_fields = [
     [
         'Name' => 'Registrant Type',
         'Type' => 'radio',
-        'Options' => 'Individual,Company',
-        'Default' => 'Individual',
+        'Options' => 'Company',
+        'Default' => 'Company',
         'Required' => true,
     ],
     [
@@ -73,13 +75,15 @@ $rs_cmp_fields = [
         'Name' => 'Company Number',
         'Type' => 'text',
         'Size' => '30',
-        'Required' => true,
+        'Required' => false,
+        'Description' => 'Leave blank to use the registrant VAT ID.',
     ],
     [
         'Name' => 'Tax Number',
         'Type' => 'text',
         'Size' => '30',
-        'Required' => true,
+        'Required' => false,
+        'Description' => 'Leave blank to use the registrant VAT ID.',
     ],
 ];
 

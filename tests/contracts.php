@@ -430,10 +430,76 @@ foreach (['keyed' => [12 => '12345678', 13 => '100000001'], 'list' => [['id' => 
         Suite::same('DE', $result['Country']);
     });
 }
-$suite->test('profile/company-requires-separate-company-number', static function () use ($profile, $mapper): void {
-    Suite::rejects(static fn() => $profile->buildRegistrantContactData(array_replace(baseParams(), [
+$suite->test('profile/company-number-defaults-to-tax-number', static function () use ($profile, $mapper): void {
+    $result = $profile->buildRegistrantContactData(array_replace(baseParams(), [
         'additionalfields' => ['Company Name' => 'Offline Ltd', 'Tax Number' => '100000001'],
+    ]), 'company', $mapper);
+    Suite::same('100000001', $result['Company Number']);
+    Suite::same('100000001', $result['Tax Number']);
+});
+foreach (['tax_id', 'VAT ID', 'vat_id', 'vatNo'] as $alias) {
+    $suite->test('profile/vat-fallback/' . $alias, static function () use ($profile, $mapper, $alias): void {
+        $params = array_replace(baseContact(), ['Company Name' => 'Offline Ltd', $alias => ' RS-001/test ']);
+        unset($params['Tax Number']);
+        $result = $profile->buildRegistrantContactData($params, 'company', $mapper);
+        $payload = ContactNormalizer::toRnidsCreatePayload($result, 'Registrant');
+        Suite::same('RS-001/test', $payload['extension']['ident']);
+        Suite::same('RS-001/test', $payload['extension']['vatNo']);
+    });
+}
+$suite->test('profile/blank-tax-alias-keeps-submitted-vat-id', static function () use ($profile, $mapper): void {
+    $params = array_replace(baseContact(), ['Company Name' => 'Offline Ltd', 'tax_id' => 'VAT-001']);
+    $result = $profile->buildRegistrantContactData($params, 'company', $mapper);
+    Suite::same('VAT-001', $result['Company Number']);
+    Suite::same('VAT-001', $result['Tax Number']);
+});
+$suite->test('profile/explicit-tax-number-wins-over-vat-alias', static function () use ($profile, $mapper): void {
+    $params = array_replace(baseContact(), ['Company Name' => 'Offline Ltd', 'Tax Number' => 'EXPLICIT-001', 'tax_id' => 'VAT-002']);
+    $result = $profile->buildRegistrantContactData($params, 'company', $mapper);
+    Suite::same('EXPLICIT-001', $result['Company Number']);
+    Suite::same('EXPLICIT-001', $result['Tax Number']);
+});
+$suite->test('profile/explicit-company-number-wins-over-vat', static function () use ($profile, $mapper): void {
+    $result = $profile->buildRegistrantContactData(array_replace(baseParams(), [
+        'additionalfields' => ['Company Name' => 'Offline Ltd', 'Company Number' => 'COMPANY-001', 'Tax Number' => 'VAT-002'],
+    ]), 'company', $mapper);
+    Suite::same('COMPANY-001', $result['Company Number']);
+    Suite::same('VAT-002', $result['Tax Number']);
+});
+$suite->test('profile/vat-fallback-stays-with-selected-registrant', static function () use ($profile, $mapper): void {
+    $params = array_replace(baseParams(), ['companyname' => 'Account Ltd', 'tax_id' => 'ACCOUNT-VAT',
+        'contactdetails' => ['Registrant' => array_replace(baseContact(), ['Company Name' => 'Registrant Ltd', 'Tax Number' => 'REGISTRANT-VAT'])]]);
+    $result = $profile->buildRegistrantContactData($params, 'company', $mapper);
+    Suite::same('REGISTRANT-VAT', $result['Company Number']);
+});
+$suite->test('profile/missing-registrant-vat-does-not-use-account-vat', static function () use ($profile, $mapper): void {
+    Suite::rejects(static fn() => $profile->buildRegistrantContactData(array_replace(baseParams(), [
+        'tax_id' => 'ACCOUNT-VAT', 'contactdetails' => ['Registrant' => array_replace(baseContact(), ['Company Name' => 'Registrant Ltd'])],
     ]), 'company', $mapper));
+});
+$suite->test('additionalfields/registration-defaults-allow-vat-fallback', static function (): void {
+    $additionaldomainfields = [];
+    set_error_handler(static function (int $severity, string $message): never {
+        throw new RuntimeException($message);
+    });
+    try {
+        require dirname(__DIR__) . '/rnids.additionalfields.php';
+    } finally {
+        restore_error_handler();
+    }
+    foreach (['.rs', '.in.rs', '.срб', '.од.срб'] as $tld) {
+        $fields = array_column($additionaldomainfields[$tld], null, 'Name');
+        Suite::same('Individual', $fields['Registrant Type']['Default']);
+        Suite::same(false, $fields['Company Number']['Required']);
+        Suite::same(false, $fields['Tax Number']['Required']);
+    }
+    foreach (['.co.rs', '.org.rs', '.edu.rs', '.пр.срб', '.орг.срб', '.обр.срб'] as $tld) {
+        $fields = array_column($additionaldomainfields[$tld], null, 'Name');
+        Suite::same('Company', $fields['Registrant Type']['Default']);
+        Suite::same('Company', $fields['Registrant Type']['Options']);
+        Suite::same(false, $fields['Company Number']['Required']);
+        Suite::same(false, $fields['Tax Number']['Required']);
+    }
 });
 $suite->test('contact/field-aliases', static function () use ($mapper): void {
     $actual = $mapper->normalizeWhmcsContactData(['firstname' => ' Milan ', 'lastname' => 'Petrovic',
@@ -649,6 +715,18 @@ $suite->test('registration/success-uses-new-contact-and-configured-tech', static
     Suite::same(['success' => true], \rnids_RegisterDomain(baseParams()));
     Suite::same(['host.info', 'host.info', 'contact.create', 'domain.register'], FakeRegistry::operations());
     Suite::same(['contract.rs', 'NEW-REG', 'NEW-REG', 'TECH-OFFLINE', ['ns1.example.invalid', 'ns2.example.invalid'], 1], FakeRegistry::$calls[3]['arguments']);
+});
+$suite->test('registration/co-rs-copies-vat-to-company-number', static function (): void {
+    FakeRegistry::queue('host.info', ['ipv4' => [], 'ipv6' => []], ['ipv4' => [], 'ipv6' => []]);
+    FakeRegistry::queue('contact.create', ['id' => 'NEW-COMPANY']);
+    FakeRegistry::queue('domain.register', []);
+    $params = array_replace(baseParams(), baseContact(), ['tld' => 'co.rs', 'companyname' => 'Offline Ltd', 'tax_id' => '100000001']);
+    unset($params['contactdetails'], $params['Company Name'], $params['Tax Number']);
+    Suite::same(['success' => true], \rnids_RegisterDomain($params));
+    $payload = FakeRegistry::$calls[2]['arguments'][0];
+    Suite::same('100000001', $payload['extension']['ident']);
+    Suite::same('100000001', $payload['extension']['vatNo']);
+    Suite::same('contract.co.rs', FakeRegistry::$calls[3]['arguments'][0]);
 });
 $suite->test('renew/success-period-forwarding', static function (): void {
     FakeRegistry::queue('domain.renew', []);
